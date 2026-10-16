@@ -27,6 +27,7 @@ from pathlib import Path
 import pystray
 from PIL import Image, ImageDraw
 
+import meetingctl
 import settingsui
 import winshutdown
 from mousehook import MouseButtons
@@ -69,14 +70,20 @@ HOTKEY_FASTER = "ctrl+alt+up"
 HOTKEY_SLOWER = "ctrl+alt+down"
 HOTKEY_SOURCE = "ctrl+alt+g"  # G for go back, to wherever the text came from
 HOTKEY_MEETING = "ctrl+alt+t"  # T for tracker: open the meeting window
+# The meeting keys live here, not in meeting.py: one keyboard hook on the
+# machine, in the process that is not running Whisper, and only while listen
+# mode is open (#19). They avoid cufflink's own set and anything with alt+r
+# in it, which is the NVIDIA overlay.
+HOTKEY_RECORD = "ctrl+alt+l"   # L for listen
+HOTKEY_MARK = "ctrl+alt+k"     # K for keep this, I will come back to it
+HOTKEY_NOTE = "ctrl+alt+n"     # N for note
 
 # The meeting tracker is a separate program on a port of its own, started on
 # demand and never at startup. Two reasons, both load-bearing: it drags in
 # ctranslate2 and half a gigabyte of Whisper, which has no business on the
 # path that has to put a window up in seven seconds; and a thing that can hear
 # both sides of a call should not be running because the tray happens to be.
-MEETING_PORT = 52720
-MEETING_SCRIPT = "meeting.py"
+MEETING_PORT = meetingctl.MEETING_PORT
 
 # The voice: 70% bf_emma (British, clear) + 30% af_nicole (breathy rasp).
 BLEND = (("bf_emma", 0.7), ("af_nicole", 0.3))
@@ -1049,6 +1056,9 @@ def main():
     # talking -- and none of it crosses at all outside listen mode.
     listen = {"version": -1, "recording": False, "status": "",
               "levels": {}, "lines": [], "notes": [], "job": None,
+              # The tracker this pill started, so Stop can end it whatever
+              # state it is in; and the meeting keys while they are bound.
+              "proc": None, "keys": [], "said": "",
               # True while a background ask is out. Without it a slow answer
               # would let the next tick start a second one, and a stalled
               # meeting process would collect a thread every 500 ms.
@@ -1373,20 +1383,16 @@ def main():
 
     # --- listen mode: the same pill, doing the other job -------------------
 
-    def meeting_listening(timeout: float = 0.35) -> bool:
-        """Is anything holding the meeting port?
+    def meeting_listening(timeout: float = 1.0) -> bool:
+        """Is the tracker running -- the tracker, not just anything on its port?
 
-        A connect and an immediate close. It does not wait for the process to
-        answer, which matters because the thing that answers is the thread
-        doing the transcribing -- ask it while it is busy and a running
-        process looks like a dead one.
+        A handshake rather than a connect. ryans-assistant once held this port
+        as its own lock; a bare connect took that for a running tracker, so the
+        pill never started one and sent ::record into a socket nobody read.
+        The port is answered on its own thread, so a busy transcriber does not
+        make a running tracker look dead.
         """
-        try:
-            with socket.create_connection(("127.0.0.1", MEETING_PORT),
-                                          timeout=timeout):
-                return True
-        except OSError:
-            return False
+        return meetingctl.hello(timeout=timeout) is not None
 
     def meetings_folder() -> Path:
         """Where transcripts are written. Asked of the meeting process when it
@@ -1502,7 +1508,12 @@ def main():
             try:
                 state = json.loads(answer)
             except ValueError:
-                state = {}
+                # Something answered, but not with a state. Never read that as
+                # "not recording": that is how a tracker recording both sides
+                # of a call once looked stopped (#19).
+                state = {"recording": listen["recording"],
+                         "status": "the tracker is not answering properly — "
+                                   "■ stops it"}
             payload = {"state": state}
             if state.get("version", -1) != known_version:
                 whole = meeting_says("::dump", timeout=4.0)
@@ -1518,12 +1529,15 @@ def main():
         """What ask_meeting found, applied on the UI thread."""
         if payload is None:
             listen["recording"] = False
-            listen["status"] = "not running"
+            # What the pill last had to say -- a taken port, a failed start,
+            # a repair -- outlives the poll that finds nothing running.
+            listen["status"] = listen["said"] or "not running"
             listen["lines"] = []
             listen["version"] = -1
             render_listen()
         else:
             state = payload["state"]
+            listen["said"] = ""
             was_recording = listen["recording"]
             listen["recording"] = bool(state.get("recording"))
             listen["status"] = state.get("status") or ""
@@ -1554,35 +1568,94 @@ def main():
         whole = listen["status"] or ""
         listen_status.config(text=whole[:22] + ("…" if len(whole) > 22 else ""))
 
-    def start_meeting():
-        """Bring the transcription process up, headless -- this pill is its
-        window. It is never started at login and never by opening the pill:
-        something that can hear both sides of a call waits to be asked."""
+    def meeting_log() -> Path:
+        return settings_home().with_name("meeting.log")
+
+    def start_meeting(record: bool = False):
+        """Bring the transcription process up. Only ever because somebody
+        pressed record: not at login, and no longer by opening the pill
+        either. Opening listen mode used to start it, and with it a model
+        loading on every core at the moment a call began (#19).
+
+        Says why when it cannot, rather than looking like it did."""
         if meeting_listening():
             return True
-        import subprocess
-
-        here = Path(__file__).resolve().parent
-        script = here / MEETING_SCRIPT
-        if not script.exists():
-            listen["status"] = "meeting.py is missing"
+        held, pid, name = meetingctl.port_holder(MEETING_PORT)
+        if held:
+            listen["said"] = (f"port {MEETING_PORT} is taken by "
+                              f"{name or 'another program'}")
             return False
-        runner = here / "venv" / "Scripts" / "pythonw.exe"
-        if not runner.exists():
-            runner = Path(sys.executable).with_name("pythonw.exe")
-        log = settings_home().with_name("meeting.log")
+        frozen = meetingctl.frozen()
+        here = meetingctl.app_dir()
+        if not frozen and not (here / "meeting.py").exists():
+            listen["said"] = "meeting.py is missing — reinstall"
+            return False
+        argv = meetingctl.command_line(here, frozen, sys.executable)
+        if record:
+            argv.append("--record")
         try:
-            log.parent.mkdir(parents=True, exist_ok=True)
-            with open(log, "a", encoding="utf-8") as out:
-                subprocess.Popen(
-                    [str(runner), str(script), "--headless"], cwd=str(here),
-                    stdout=out, stderr=out,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            listen["status"] = "starting…"
+            listen["proc"] = meetingctl.launch(argv, here, meeting_log())
+            listen["status"] = listen["said"] = "starting…"
             return True
         except Exception as failed:
-            listen["status"] = f"{failed}"
+            listen["said"] = f"could not start: {failed}"
             return False
+
+    def stop_meeting():
+        """End the tracker, whatever state it is in. Off the UI thread, since
+        it may have to wait for a process to finish saving."""
+        def work():
+            pid = meetingctl.hello(timeout=1.0)
+            said = meetingctl.stop(proc=listen["proc"], pid=pid)
+            listen["proc"] = None
+            ui_events.put(("command", ("listen-stopped", said)))
+        threading.Thread(target=work, daemon=True).start()
+        listen["status"] = "stopping…"
+        render_listen_controls()
+
+    def bind_meeting_keys(on: bool):
+        """The meeting keys exist exactly as long as listen mode does."""
+        if keyboard is None:
+            return
+        for handle in listen["keys"]:
+            try:
+                keyboard.remove_hotkey(handle)
+            except Exception:
+                pass
+        listen["keys"] = []
+        if not on:
+            return
+        for combination, name in ((HOTKEY_RECORD, "record"),
+                                  (HOTKEY_MARK, "mark"),
+                                  (HOTKEY_NOTE, "note")):
+            try:
+                listen["keys"].append(keyboard.add_hotkey(
+                    combination,
+                    lambda n=name: ui_events.put(("command", (n, "")))))
+            except Exception:
+                pass
+
+    def report_problem(where: str = "the meeting tracker"):
+        """Open a filled-in GitHub issue for the user to read and send."""
+        import webbrowser
+
+        url = meetingctl.report_url(
+            what=listen["status"] or "",
+            where=where,
+            how=meetingctl.where_it_runs(meetingctl.frozen(), meetingctl.app_dir()),
+            log=meetingctl.log_tail(meeting_log()))
+        webbrowser.open(url)
+
+    def repair(what: str):
+        if what == "settings":
+            listen["said"] = meetingctl.reset_settings(settings_home())
+        elif what == "model":
+            import listener
+
+            listen["said"] = meetingctl.forget_model(
+                listener.model_cache(), listener.MODELS["small"].repo)
+        listen["status"] = listen["said"]
+        render_listen_controls()
 
     def set_mode(mode: str):
         """Swap what the pill is for. The reader and the window stay; only the
@@ -1608,7 +1681,7 @@ def main():
             listen_controls.pack(fill="x", padx=14, pady=(2, 8))
             mode_btn.config(text="read")
             speaker.stop()
-            start_meeting()
+            bind_meeting_keys(True)
             # Draw the transcript now rather than whenever it next changes.
             # Without this the pill kept showing whatever the reader last
             # held -- a spoken message, a setting flash -- for as long as
@@ -1622,6 +1695,7 @@ def main():
                 root.after_cancel(listen["job"])
                 listen["job"] = None
             listen_controls.pack_forget()
+            bind_meeting_keys(False)
             reader.config(height=3)
             # Packed in order rather than with `before=controls`. `controls`
             # is not managed at this point -- it was forgotten on the way into
@@ -1651,12 +1725,23 @@ def main():
         cancel_hide()
 
     def toggle_record():
-        if not listen["recording"] and not start_meeting():
-            return
-        meeting_says("::record" if not listen["recording"] else "::pause")
-        listen["recording"] = not listen["recording"]
+        """Record or pause. What the pill shows comes from the tracker's own
+        answer on the next poll, never from having pressed the button."""
+        if not listen["recording"]:
+            if not meeting_listening():
+                start_meeting(record=True)
+            else:
+                meeting_says("::record")
+        else:
+            meeting_says("::pause")
         render_listen_controls()
         touched()
+
+    def focus_note():
+        try:
+            note_entry.focus_force()
+        except Exception:
+            pass
 
     def mark_latest():
         if meeting_says("::check") is not None:
@@ -1693,7 +1778,13 @@ def main():
                     command=lambda s=source, i=index: meeting_says(f"::use {s} {i}"))
             menu.add_separator()
         menu.add_separator()
+        menu.add_command(label="■  Stop listening", command=stop_meeting)
         menu.add_command(label="Open the meetings folder…", command=open_meetings)
+        menu.add_command(label="Report a problem…", command=report_problem)
+        menu.add_command(label="Repair: download the listening model again",
+                         command=lambda: repair("model"))
+        menu.add_command(label="Repair: reset settings to the defaults",
+                         command=lambda: repair("settings"))
         menu.add_command(label="Voices and settings…", command=open_settings)
         try:
             menu.tk_popup(root.winfo_pointerx(), root.winfo_pointery())
@@ -1732,6 +1823,11 @@ def main():
 
     def quit_app(icon, _item):
         release_hooks()
+        if listen["proc"] is not None:
+            try:
+                meetingctl.stop(proc=listen["proc"], grace=2.0)
+            except Exception:
+                pass
         icon.stop()
         root.after(0, root.destroy)
 
@@ -1810,43 +1906,6 @@ def main():
             for name, label in characters.catalogue()
         ]
     )
-    def open_meeting(_icon=None, _item=None):
-        """Open the meeting tracker, or raise it if it is already up.
-
-        Asking the port first is what makes this idempotent: clicking the tray
-        item twice should not leave two windows fighting over one microphone.
-        The child gets its own console-free process and a log file, because a
-        program started from a tray menu fails invisibly otherwise -- the same
-        reason claude_notify.py keeps one.
-        """
-        import subprocess
-
-        try:
-            with socket.create_connection(("127.0.0.1", MEETING_PORT),
-                                          timeout=0.6) as conn:
-                conn.sendall(b"::show")
-                return
-        except OSError:
-            pass
-
-        here = Path(__file__).resolve().parent
-        script = here / MEETING_SCRIPT
-        if not script.exists():
-            return
-        runner = here / "venv" / "Scripts" / "pythonw.exe"
-        if not runner.exists():
-            runner = Path(sys.executable).with_name("pythonw.exe")
-        log = settings_home().with_name("meeting.log")
-        try:
-            log.parent.mkdir(parents=True, exist_ok=True)
-            with open(log, "a", encoding="utf-8") as out:
-                subprocess.Popen([str(runner), str(script)], cwd=str(here),
-                                 stdout=out, stderr=out,
-                                 creationflags=getattr(subprocess,
-                                                       "CREATE_NO_WINDOW", 0))
-        except Exception as failed:
-            print(f"meeting: {failed}")
-
     menu = pystray.Menu(
         pystray.MenuItem(f"Read selection: {HOTKEY_READ}", None, enabled=False),
         pystray.MenuItem(f"Pause: {HOTKEY_PAUSE} or click the pill", None, enabled=False),
@@ -1854,9 +1913,26 @@ def main():
         pystray.MenuItem(f"Follow a meeting: {HOTKEY_MEETING}",
                          lambda icon, item: ui_events.put(("command",
                                                            ("listen", "")))),
-        pystray.MenuItem("Open the meetings folder…",
-                         lambda icon, item: ui_events.put(("command",
-                                                           ("meetings", "")))),
+        # Everything the pill does in a meeting, again, in a native Windows
+        # menu: reachable from the keyboard (Win+B, arrows) and read out by a
+        # screen reader, which a Tk window that never takes focus is not.
+        pystray.MenuItem("Meeting", pystray.Menu(
+            pystray.MenuItem(f"Record / pause: {HOTKEY_RECORD}",
+                             lambda icon, item: ui_events.put(("command", ("record", ""))),
+                             checked=lambda item: listen["recording"]),
+            pystray.MenuItem(f"Mark what was just said: {HOTKEY_MARK}",
+                             lambda icon, item: ui_events.put(("command", ("mark", "")))),
+            pystray.MenuItem("Stop listening",
+                             lambda icon, item: ui_events.put(("command", ("listen-stop", "")))),
+            pystray.MenuItem("Open the meetings folder…",
+                             lambda icon, item: ui_events.put(("command", ("meetings", "")))),
+            pystray.MenuItem("Report a problem…",
+                             lambda icon, item: ui_events.put(("command", ("report", "")))),
+            pystray.MenuItem("Repair: download the listening model again",
+                             lambda icon, item: ui_events.put(("command", ("repair", "model")))),
+            pystray.MenuItem("Repair: reset settings to the defaults",
+                             lambda icon, item: ui_events.put(("command", ("repair", "settings")))),
+        )),
         pystray.MenuItem("Speed", speed_menu),
         pystray.MenuItem("Volume", volume_menu),
         pystray.MenuItem("Voice", voice_menu),
@@ -1919,6 +1995,26 @@ def main():
             open_settings()
         elif name == "listen":
             open_listening()
+        elif name == "listen-stop":
+            stop_meeting()
+        elif name == "listen-stopped":
+            listen["status"] = listen["said"] = arg
+            listen["recording"] = False
+            render_listen_controls()
+        elif name == "record":
+            if pill["mode"] != "listen":
+                open_listening()
+            toggle_record()
+        elif name == "mark":
+            mark_latest()
+        elif name == "note":
+            if pill["mode"] != "listen":
+                open_listening()
+            focus_note()
+        elif name == "report":
+            report_problem()
+        elif name == "repair":
+            repair(arg)
         elif name == "meetings":
             open_meetings()
         elif name == "mode":
@@ -2119,4 +2215,16 @@ if __name__ == "__main__":
         import claudehook
 
         raise SystemExit(claudehook.run_as_hook())
+    # Likewise the meeting tracker: packaged there is no python to run
+    # meeting.py with, so the pill starts this exe again with --meeting.
+    if sys.argv[1:2] == ["--meeting"]:
+        try:
+            import pyi_splash  # the exe's start-up splash is for the reader
+
+            pyi_splash.close()
+        except Exception:
+            pass
+        import meeting
+
+        raise SystemExit(meeting.main(sys.argv[2:]))
     main()
