@@ -108,6 +108,33 @@ class KnowingTheTracker(unittest.TestCase):
         self.assertEqual(meetingctl.parse_hello(answer), __import__("os").getpid())
 
 
+class SayingWhatItIsDoing(unittest.TestCase):
+    """The pill draws whatever ::state says, so ::state must answer while
+    recording -- the one time it matters."""
+
+    def test_state_answers_while_recording(self):
+        import json
+
+        heard = SimpleNamespace(source="you", level=-30.0, heard_at=time.monotonic())
+        session = meeting.Session.__new__(meeting.Session)
+        session.sources = [heard]
+        session.minutes = meeting.Minutes()
+        session.window = meeting._NoWindow()
+        session.frames = __import__("queue").Queue()
+        session.args = SimpleNamespace(model="base", refine_with="")
+        state = json.loads(session.command("::state"))
+        self.assertTrue(state["recording"])
+        self.assertEqual(state["levels"]["you"], 3)   # -30 dB: a quiet voice
+
+    def test_the_meter_lights_nothing_in_a_quiet_room_and_all_of_it_loud(self):
+        import capture
+
+        self.assertEqual(capture.meter(-90), 0)
+        self.assertEqual(capture.meter(-60), 0)
+        self.assertEqual(capture.meter(-12), 5)
+        self.assertEqual(capture.meter(0), 5)
+
+
 class RefusingToRunUnstoppable(unittest.TestCase):
 
     def test_a_taken_port_stops_the_tracker_before_it_starts(self):

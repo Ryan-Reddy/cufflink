@@ -50,6 +50,24 @@ PROBE_SECONDS = 1.0
 
 # Nothing has been heard on this source for this long -> show it as silent.
 QUIET_AFTER = 1.5
+# The pill's level meters: five bars from a room (-60 dBFS) to a raised
+# voice (-12). Below the first, nothing lights; above the last, all five.
+METER_FLOOR_DB = -60.0
+METER_TOP_DB = -12.0
+METER_BARS = 5
+
+
+def meter(db: float) -> int:
+    """How many of the pill's five bars a level lights.
+
+    meeting.py called this from the start and it was never written, so every
+    ::state asked while recording raised -- and the pill, getting no answer,
+    showed "not recording" over a tracker that was recording both sides of a
+    call (#19).
+    """
+    span = METER_TOP_DB - METER_FLOOR_DB
+    lit = round((float(db) - METER_FLOOR_DB) / span * METER_BARS)
+    return max(0, min(METER_BARS, lit))
 
 
 class Framer:

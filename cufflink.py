@@ -1508,7 +1508,12 @@ def main():
             try:
                 state = json.loads(answer)
             except ValueError:
-                state = {}
+                # Something answered, but not with a state. Never read that as
+                # "not recording": that is how a tracker recording both sides
+                # of a call once looked stopped (#19).
+                state = {"recording": listen["recording"],
+                         "status": "the tracker is not answering properly — "
+                                   "■ stops it"}
             payload = {"state": state}
             if state.get("version", -1) != known_version:
                 whole = meeting_says("::dump", timeout=4.0)
