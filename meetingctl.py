@@ -157,7 +157,9 @@ def stop(proc=None, pid=None, grace: float = 3.0, ask_fn=ask, kill_fn=None) -> s
         while time.monotonic() < deadline and proc.poll() is None:
             time.sleep(0.1)
         if proc.poll() is None:
-            proc.kill()
+            # The whole tree, not the handle: from source the handle is the
+            # venv's launcher stub, and the tracker is its child (#7).
+            kill_fn(proc.pid)
             return "stopped (it had to be ended)"
         return "stopped"
     if pid:

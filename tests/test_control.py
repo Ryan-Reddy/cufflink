@@ -144,10 +144,14 @@ class Stopping(unittest.TestCase):
         proc.kill.assert_not_called()
 
     def test_a_tracker_that_hangs_is_ended_anyway(self):
-        proc = mock.Mock()
+        proc = mock.Mock(pid=31337)
         proc.poll.return_value = None
-        said = meetingctl.stop(proc=proc, grace=0.2, ask_fn=lambda *a, **k: None)
-        proc.kill.assert_called_once()
+        killed = []
+        said = meetingctl.stop(proc=proc, grace=0.2, ask_fn=lambda *a, **k: None,
+                               kill_fn=killed.append)
+        # The tree under the handle: from source that is the venv's launcher,
+        # with the tracker as its child.
+        self.assertEqual(killed, [31337])
         self.assertIn("ended", said)
 
     def test_a_tracker_this_pill_did_not_start_is_ended_by_its_pid(self):
