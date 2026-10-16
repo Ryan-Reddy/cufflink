@@ -1,0 +1,116 @@
+name: Test and deploy
+
+# cufflink.reddy.world: a preview channel on every pull request (one comment,
+# updated on every push, gone after 7 days or when the PR closes; see
+# preview-cleanup.yml) and the live site on main.
+#
+# The deploy steps are copied from repo.template.reddy.world's shared
+# .github/workflows/firebase-deploy.yml (at 197e58e). Calling it would be
+# better, but that repository is private and this one is public, and GitHub
+# does not let a public repository call a private one's workflow.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # The app is Windows-only (keyboard hooks, WASAPI loopback), and so are
+    # its tests. Anything needing the model files skips itself.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests
+
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # the sitemap's lastmod comes from each page's last commit
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: python -m pip install pillow markdown
+      - run: python site/build.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: _site
+          retention-days: 7
+
+  deploy:
+    needs: [test, site]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write         # the deploy action reports its result as a check
+      pull-requests: write  # ... and keeps one comment with the preview link
+    concurrency:
+      # PR runs may cancel each other; a live publish never gets skipped.
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    env:
+      # Without the secret nothing is published, and the job says so rather
+      # than failing.
+      CAN_PUBLISH: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GETREDDYWORLD != '' }}
+      SITE_URL: https://cufflink.reddy.world
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: _site
+
+      - name: Say why nothing will be published
+        if: env.CAN_PUBLISH != 'true'
+        run: echo "::notice::No FIREBASE_SERVICE_ACCOUNT_GETREDDYWORLD secret, so nothing is published. Add it and re-run."
+
+      - name: Publish preview
+        id: preview
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          env.CAN_PUBLISH == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GETREDDYWORLD }}
+          projectId: getreddyworld
+          target: cufflink
+          expires: 7d
+          # No channelId: the action makes one per PR, stable across new
+          # commits, and edits its one comment instead of adding another.
+
+      - name: Publish live
+        id: live
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          env.CAN_PUBLISH == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GETREDDYWORLD }}
+          projectId: getreddyworld
+          target: cufflink
+          channelId: live
+
+      - name: Check the site is discoverable
+        if: steps.preview.outcome == 'success' || steps.live.outcome == 'success'
+        env:
+          SITE: ${{ steps.preview.outcome == 'success' && steps.preview.outputs.details_url || env.SITE_URL }}
+        # The files crawlers look for must exist and must not be an HTML page.
+        run: bash scripts/check-discoverable.sh "$SITE"

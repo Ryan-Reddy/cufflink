@@ -88,10 +88,12 @@
          is what lets it run at all. Routinely granted for desktop bridge
          packages; say what the app is and that it ships no service.
 
-         Deliberately NOT declared: internetClient. cufflink never opens a
-         socket outward — the model is on disk and the text-in port is bound
-         to 127.0.0.1. Asking for a capability you do not use is how a
-         listening-to-your-screen app looks, and this one is not that. -->
+         Not declared: internetClient. It would change nothing for a
+         full-trust app, which an AppContainer capability does not bind,
+         and asking for a capability you do not need is how a
+         listening-to-your-screen app looks. Reading aloud never opens a
+         socket outward; the one download is the meeting tracker's
+         whisper-small, once, on first use (see STORE.md). -->
     <rescap:Capability Name="runFullTrust" />
   </Capabilities>
 </Package>

@@ -1,0 +1,16 @@
+# humanstxt.org/
+# The humans responsible & technology colophon
+
+# TEAM
+
+    Ryan Reddy -- maker -- https://reddy.world
+
+# TECHNOLOGY COLOPHON
+
+    The app: Python, Kokoro-82M through kokoro-onnx, onnxruntime, faster-whisper
+    This site: plain HTML and CSS, built by a Python script, hosted on Firebase Hosting
+    Source: https://github.com/Ryan-Reddy/cufflink
+
+# LAST UPDATE
+
+    2026-10-16

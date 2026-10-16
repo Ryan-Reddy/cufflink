@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "cufflink",
+  "short_name": "cufflink",
+  "description": "Select text anywhere in Windows and hear it read aloud, entirely on your own computer. No account, no network, nothing leaves your machine.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d1b33",
+  "theme_color": "#0d1b33",
+  "lang": "en",
+  "icons": [
+    {"src": "/icons/icon-192.png", "type": "image/png", "sizes": "192x192"},
+    {"src": "/icons/icon-512.png", "type": "image/png", "sizes": "512x512"},
+    {"src": "/icons/icon-maskable-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable"}
+  ]
+}

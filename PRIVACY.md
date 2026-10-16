@@ -1,12 +1,12 @@
 # Privacy Policy
 
-**cufflink** · last updated 8 September 2026
+**cufflink** · last updated 16 October 2026
 
 ## The short version
 
-cufflink collects nothing, stores nothing about you, and sends nothing
-anywhere. There is no account, no telemetry, no analytics, and no server for
-your data to reach.
+cufflink collects nothing, and sends nothing about you anywhere. There is no
+account, no telemetry, no analytics, and no server for your data to reach.
+Everything it hears or reads stays on your computer.
 
 ## What cufflink does with the text you read
 
@@ -19,12 +19,28 @@ The speech synthesis runs locally, from a model file installed alongside the
 application. It is not a cloud service. The machine can be disconnected from
 the internet permanently and cufflink works exactly the same.
 
+## Meeting notes, if you use them
+
+cufflink has a meeting tracker, which you open yourself with `Ctrl+Alt+T`. It
+opens recording nothing. Only while you have recording switched on
+(`Ctrl+Alt+L`) does it listen to your microphone and to what your speakers
+play, and turn both into text on your own computer. The audio itself is not
+saved and not sent anywhere.
+
+When the meeting ends, the text is saved as a file in your local application
+data folder (`cufflink\meetings`). It stays there, on your computer, until you
+delete it.
+
 ## What cufflink stores on your computer
 
-One file, `settings.json`, under your local application data folder. It holds
-your own preferences — which voices you chose, speed, volume, and the voice
-treatments you mixed. It contains no personal information and never leaves
-your machine. Deleting the app's data removes it.
+- `settings.json`, under your local application data folder. It holds your own
+  preferences — which voices you chose, speed, volume, and the voice
+  treatments you mixed. It contains no personal information.
+- The meeting notes described above, only if you record a meeting.
+- The speech-recognition model for meeting notes, once it has been downloaded
+  (see below).
+
+None of it ever leaves your machine. Deleting the app's data removes it.
 
 ## Network access
 
@@ -33,14 +49,18 @@ applications *on the same computer* can send it text to read aloud. This
 address is the loopback interface: it is reachable only from your own machine
 and is not accessible from any network.
 
-cufflink makes no outbound network connections. The Microsoft Store package
-declares no `internetClient` capability, which means Windows itself would
-prevent it from reaching the internet even if it tried.
+Reading aloud makes no outbound network connections.
 
-If you install cufflink from source rather than the Store, the installer
-downloads the speech model once from its public release page. That is the only
-network request in the project, it happens at install time, and it is a
-download of files to you — nothing about you is uploaded.
+Two downloads can happen, and both are files coming to you; nothing about you,
+and no audio or text, is uploaded:
+
+- **Installing from source.** The installer downloads the speech models once
+  (about 500 MB) from their public release pages, and checks each file against
+  a known checksum. The Microsoft Store package already contains them.
+- **The first time you use the meeting tracker,** it downloads a larger
+  speech-recognition model (about 484 MB) from Hugging Face, once, into your
+  local application data folder. If you never use the meeting tracker, this
+  never happens.
 
 ## Third parties
 
@@ -59,4 +79,4 @@ the project repository.
 ## Contact
 
 Ryan Reddy — https://reddy.world
-Issues and questions: https://github.com/Ryan-Reddy/murmur/issues
+Issues and questions: https://github.com/Ryan-Reddy/cufflink/issues

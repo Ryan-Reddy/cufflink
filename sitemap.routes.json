@@ -1,0 +1,4 @@
+[
+  {"path": "/", "source": "site/index.html", "images": ["/img/01-reading.png", "/img/02-voices.png"]},
+  {"path": "/privacy/", "source": "PRIVACY.md"}
+]

@@ -1,0 +1,33 @@
+{
+  "hosting": {
+    "target": "cufflink",
+    "public": "_site",
+    "cleanUrls": true,
+    "trailingSlash": true,
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {"key": "Referrer-Policy", "value": "strict-origin-when-cross-origin"},
+          {"key": "X-Content-Type-Options", "value": "nosniff"},
+          {"key": "X-Frame-Options", "value": "DENY"},
+          {"key": "Content-Security-Policy", "value": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'"},
+          {"key": "Strict-Transport-Security", "value": "max-age=31536000"},
+          {"key": "Cross-Origin-Opener-Policy", "value": "same-origin"}
+        ]
+      },
+      {
+        "source": "**/*.@(png|webp|ico)",
+        "headers": [{"key": "Cache-Control", "value": "public, max-age=86400"}]
+      },
+      {
+        "source": "/@(robots.txt|llms.txt|humans.txt)",
+        "headers": [{"key": "Content-Type", "value": "text/plain; charset=utf-8"}]
+      },
+      {
+        "source": "/site.webmanifest",
+        "headers": [{"key": "Content-Type", "value": "application/manifest+json"}]
+      }
+    ]
+  }
+}

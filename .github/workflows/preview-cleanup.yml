@@ -1,0 +1,42 @@
+name: Preview cleanup
+
+# When a PR closes or merges, its preview channel goes with it, rather than
+# waiting out the 7 days. The channel is the one FirebaseExtended/
+# action-hosting-deploy made for the PR: its id starts with "pr<number>-".
+# https://firebase.google.com/docs/hosting/manage-hosting-resources
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-cleanup-${{ github.event.pull_request.number }}
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      SITE: cufflink-reddy
+      PROJECT: getreddyworld
+      PR: ${{ github.event.pull_request.number }}
+      SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GETREDDYWORLD }}
+    steps:
+      - name: Say why nothing is deleted
+        if: env.SA == ''
+        run: echo "::notice::No FIREBASE_SERVICE_ACCOUNT_GETREDDYWORLD secret, so no preview to delete. Any channel still expires on its own."
+      - name: Delete the PR's preview channel
+        if: env.SA != ''
+        run: |
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx -y firebase-tools@15 hosting:channel:list --site "$SITE" --project "$PROJECT" --json > "$RUNNER_TEMP/channels.json"
+          [ "$(jq -r .status "$RUNNER_TEMP/channels.json")" = success ] || { cat "$RUNNER_TEMP/channels.json"; exit 1; }
+          channels=$(jq -r --arg p "pr$PR-" '.result.channels[]?.name | split("/") | last | select(startswith($p))' "$RUNNER_TEMP/channels.json")
+          if [ -z "$channels" ]; then echo "No channel for PR $PR: it expired or was never made."; exit 0; fi
+          for c in $channels; do
+            npx -y firebase-tools@15 hosting:channel:delete "$c" --site "$SITE" --project "$PROJECT" --force
+          done

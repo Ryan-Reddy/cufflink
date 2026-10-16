@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cufflink: hear any text read aloud on Windows, offline</title>
+  <meta name="description" content="Select text anywhere in Windows and hear it read aloud, entirely on your own computer. No account, no network, nothing leaves your machine.">
+  <link rel="canonical" href="https://cufflink.reddy.world/">
+  <meta name="theme-color" content="#0d1b33">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="author" href="/humans.txt">
+  <link rel="stylesheet" href="/styles.css">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="cufflink">
+  <meta property="og:url" content="https://cufflink.reddy.world/">
+  <meta property="og:title" content="cufflink: select anything, press a key, hear it">
+  <meta property="og:description" content="Reads any selected text aloud, anywhere on Windows, fully offline.">
+  <meta property="og:image" content="https://cufflink.reddy.world/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The cufflink reading window, with the word being read lit up.">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "cufflink",
+    "operatingSystem": "Windows 10, Windows 11",
+    "applicationCategory": "UtilitiesApplication",
+    "description": "Reads any selected text aloud, anywhere on Windows, fully offline.",
+    "url": "https://cufflink.reddy.world/",
+    "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
+    "author": {"@type": "Person", "name": "Ryan Reddy", "url": "https://reddy.world"},
+    "codeRepository": "https://github.com/Ryan-Reddy/cufflink"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="/" aria-label="cufflink, home">
+        <img src="/icons/mark-64.png" alt="" width="32" height="32">
+        <span>cufflink</span>
+      </a>
+      <nav aria-label="Main">
+        <ul>
+          <li><a href="#install">Install</a></li>
+          <li><a href="/privacy/">Privacy</a></li>
+          <li><a href="https://github.com/Ryan-Reddy/cufflink">Code</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <h1>Select anything. Press a key. Hear it.</h1>
+          <p class="lead">cufflink reads the text you select aloud, in any program on Windows, and lights up each word as it goes.</p>
+          <p class="promise">Fully offline. No account, no network, nothing leaves your computer.</p>
+          <p class="actions">
+            <a class="button" href="#install">How to install</a>
+            <a class="button ghost" href="https://github.com/Ryan-Reddy/cufflink">See the code</a>
+          </p>
+          <p class="small">Free and open source. For Windows 10 and 11.</p>
+        </div>
+        <figure class="shot">
+          <picture>
+            <source srcset="/img/01-reading.webp" type="image/webp">
+            <img src="/img/01-reading.png" width="974" height="364"
+                 alt="The cufflink window. It reads a paragraph aloud; the word being read, 'repeated', is lit, the words already read are bright and the rest are dim. Below are the speed, pause, repeat, volume and select controls.">
+          </picture>
+        </figure>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="how">
+      <div class="wrap">
+        <h2 id="how">How it works</h2>
+        <ol class="steps">
+          <li><strong>Select some text,</strong> in a browser, an email, a document: anywhere.</li>
+          <li><strong>Press <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>Alt</kbd>&nbsp;+&nbsp;<kbd>M</kbd>.</strong> A small window appears straight away with the whole selection in it.</li>
+          <li><strong>Listen and follow along.</strong> Each word lights up as it is read. Words already read stay bright, the rest stay dim.</li>
+        </ol>
+        <p>Pause by clicking the text. Change the speed and the volume, or let it read the same text again until you stop it. Drag the window anywhere on screen; it stays where you leave it.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="keys">
+      <div class="wrap">
+        <h2 id="keys">The keys</h2>
+        <div class="table-wrap" role="region" aria-label="Keyboard shortcuts" tabindex="0">
+          <table>
+            <caption class="visually-hidden">Keyboard shortcuts</caption>
+            <thead><tr><th scope="col">Keys</th><th scope="col">What it does</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>M</kbd></td><td>Read the selected text. Press again to read a new selection.</td></tr>
+              <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Space</kbd></td><td>Pause or carry on.</td></tr>
+              <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>S</kbd></td><td>Stop.</td></tr>
+              <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>B</kbd></td><td>Select mode: everything you select is read straight away.</td></tr>
+              <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd></td><td>Faster or slower.</td></tr>
+              <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>G</kbd></td><td>Go back to the window you were reading from.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small">Every control also explains itself when you point at it, and the <strong>?</strong> button lists them all.</p>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="voices">
+      <div class="wrap split">
+        <div>
+          <h2 id="voices">Pick who reads to you</h2>
+          <p>Five voices, each with its own character:</p>
+          <ul class="voices">
+            <li><strong>cufflink</strong>: plain and clean.</li>
+            <li><strong>Auntie</strong>: the shipping forecast, even and measured.</li>
+            <li><strong>Veronica</strong>: offshore radio after dark.</li>
+            <li><strong>Abbey</strong>: tape, wound a little slack.</li>
+            <li><strong>The Informant</strong>: a recorder in a coat pocket.</li>
+          </ul>
+          <p>Or make your own: blend two speakers, set the speed, and mix the sound with eight dials, from tape flutter to hiss. <strong>Hear it</strong> plays a sample first; nothing changes until you press <strong>Save</strong>.</p>
+        </div>
+        <figure class="shot">
+          <picture>
+            <source srcset="/img/02-voices.webp" type="image/webp">
+            <img src="/img/02-voices.png" width="494" height="684" loading="lazy"
+                 alt="The voices window: two speakers, Emma and Nicole, mixed 70 to 30, a speed of 1.30, read by The Informant, and sliders for narrow, transistor, squash, tape, spy, fade, room and hiss.">
+          </picture>
+        </figure>
+      </div>
+    </section>
+
+    <section aria-labelledby="private">
+      <div class="wrap">
+        <h2 id="private">Private by design</h2>
+        <ul class="checks">
+          <li>The speech is made on your own computer. It is not a cloud service.</li>
+          <li>No account, no tracking, no analytics, no ads.</li>
+          <li>The text you select is held in memory only while it is read, then forgotten.</li>
+          <li>Once installed, it keeps working with the internet switched off.</li>
+        </ul>
+        <p><a href="/privacy/">Read the privacy policy</a></p>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="install">
+      <div class="wrap">
+        <h2 id="install">Install</h2>
+        <p>You need Windows 10 or 11 and about 1&nbsp;GB of free space. Nothing has to be installed first.</p>
+        <ol class="steps">
+          <li>Open the Start menu, type <strong>PowerShell</strong> and press <kbd>Enter</kbd>.</li>
+          <li>
+            Copy this line, paste it into PowerShell and press <kbd>Enter</kbd>:
+            <div class="code">
+              <code id="install-line">irm https://raw.githubusercontent.com/Ryan-Reddy/cufflink/main/install.ps1 | iex</code>
+              <button type="button" class="copy" data-copy="install-line">Copy</button>
+            </div>
+          </li>
+          <li>Answer its questions. It asks, for example, whether cufflink should start when you sign in.</li>
+          <li>Double-click <strong>cufflink</strong> on your desktop. It sits in the system tray, by the clock, until you need it.</li>
+        </ol>
+        <p>The installer puts cufflink in your user folder, sets up Python if you don't have it, and makes the shortcuts. It downloads the speech models once, about 500&nbsp;MB, and checks each file before keeping it. It is safe to run again; anything already in place is left alone.</p>
+        <details>
+          <summary>Prefer to do it by hand?</summary>
+          <p>Download the code and double-click <strong>Install.cmd</strong>:</p>
+          <div class="code"><code>git clone https://github.com/Ryan-Reddy/cufflink<br>cd cufflink<br>.\Install.cmd</code></div>
+        </details>
+      </div>
+    </section>
+
+    <section aria-labelledby="dev">
+      <div class="wrap">
+        <h2 id="dev">For developers</h2>
+        <ul>
+          <li><strong>A voice for your own apps.</strong> While cufflink runs, any program on the same computer can send it text to read, on <code>127.0.0.1:52719</code>.</li>
+          <li><strong>Hear your Claude Code sessions.</strong> A hook in the code says out loud when a session needs you or is done.</li>
+          <li><strong>Open source</strong> under the GPL-3.0 licence. <a href="https://github.com/Ryan-Reddy/cufflink">The code, the issues and how it is built are on GitHub.</a></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <p>cufflink is made by <a href="https://reddy.world">Ryan Reddy</a>.</p>
+      <ul>
+        <li><a href="/privacy/">Privacy</a></li>
+        <li><a href="https://github.com/Ryan-Reddy/cufflink">Code</a></li>
+        <li><a href="https://github.com/Ryan-Reddy/cufflink/issues">Questions and problems</a></li>
+      </ul>
+    </div>
+  </footer>
+  <script src="/copy.js" defer></script>
+</body>
+</html>

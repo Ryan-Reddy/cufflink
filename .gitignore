@@ -11,3 +11,6 @@ integrations/claude-code/*.state.json
 
 # Tied to a Partner Center account, not to the code.
 packaging/identity.json
+
+# The website build (site/build.py).
+_site/
