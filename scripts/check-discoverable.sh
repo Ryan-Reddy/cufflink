@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Is a deployed site discoverable? The files crawlers and people look for must
 # exist and must not be the SPA shell, which answers 200 text/html for every
-# missing path. Same check as the one inside .github/workflows/firebase-deploy.yml.
+# missing path. Run by .github/workflows/deploy.yml after every publish.
 #
 #   scripts/check-discoverable.sh https://example.com
 set -u
