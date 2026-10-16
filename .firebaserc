@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "getreddyworld"
+  },
+  "targets": {
+    "getreddyworld": {
+      "hosting": {
+        "cufflink": [
+          "cufflink-reddy"
+        ]
+      }
+    }
+  }
+}

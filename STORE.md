@@ -65,12 +65,19 @@ say something close to this:
 
 > cufflink is a desktop application packaged with the Desktop Bridge. It needs
 > full trust to register system-wide hotkeys, read the current selection via
-> the clipboard, and run the ONNX speech model locally. It installs no service
-> and no driver, and makes no outbound network connections.
+> the clipboard, and run the speech models locally. It installs no service
+> and no driver. Reading aloud makes no network connections; the optional
+> meeting tracker downloads one speech-recognition model, once, on first use.
 
-That is true, and worth keeping true: the manifest deliberately does **not**
-declare `internetClient`. cufflink never opens a socket outward — the model is
-on disk and the text-in port is bound to `127.0.0.1`.
+Keep that true. The voice and the meeting tracker's first model ship in the
+package and the text-in port is bound to `127.0.0.1`; the one connection
+outward is the first-use download of `small` (below).
+
+The manifest does not declare `internetClient`, and that is **not** what keeps
+cufflink offline: capabilities like it apply to apps that run in an
+AppContainer, and a `runFullTrust` desktop app does not
+([App capability declarations](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/app-capability-declarations)).
+What keeps it offline is the code.
 
 **The licence.** cufflink is GPL-3.0, which conflicts with the Store's Standard
 Application License Terms. The Store has a supported way through this: in the
@@ -89,12 +96,21 @@ more than they sound:
 - **Short description** (one line, shown in search results). Something like:
   *"Select text anywhere in Windows and hear it read aloud, entirely on your
   own machine."*
+- **Say what it downloads.** The package is about 511 MB, and the meeting
+  tracker fetches a further 484 MB (`whisper-small`) the first time it is
+  used, into `%LOCALAPPDATA%\cufflink`. Reading aloud never needs it. Put a
+  line like this in the description, and the same in **Additional system
+  requirements** if the form offers it, so nobody meets half a gigabyte they
+  were not told about:
+  *"Everything you need to read aloud is in the download. The optional meeting
+  tracker downloads one more speech model (about 484 MB) the first time you
+  use it; nothing is ever uploaded."*
 - **The offline angle is the differentiator.** Every other reader on there
   wants an account and a connection. Say "no account, no network, nothing
   leaves your machine" high up, because that is the reason someone picks this
   one.
 - **Link out.** The listing takes a website and a support contact. Point them
-  at [reddy.world](https://reddy.world) and the GitHub repo — that is how a
+  at [cufflink.reddy.world](https://cufflink.reddy.world) and the GitHub repo — that is how a
   Store listing turns into people knowing who made it, rather than a download
   that ends there.
 - **Category:** Productivity. **Age rating:** the questionnaire takes a
@@ -105,10 +121,12 @@ more than they sound:
 
 Partner Center wants a URL even for an app that collects nothing. There is one:
 
-    https://github.com/Ryan-Reddy/murmur/blob/main/PRIVACY.md
+    https://cufflink.reddy.world/privacy/
 
-It is short because the honest version is short — no account, no telemetry, no
-outbound connection, one settings file. Worth reading before you paste it, so
+That page is built from [PRIVACY.md](PRIVACY.md) on every deploy, so the two
+cannot disagree. It is short because the honest version is short — no account,
+no telemetry, nothing uploaded, one settings file, and the meeting notes you
+choose to keep. Worth reading before you paste it, so
 that if certification asks, the answer is yours rather than a link you trusted.
 
 ## 7. What to expect
@@ -117,7 +135,8 @@ Certification takes a few days for a first submission and usually less after
 that. A rejection is normally one specific thing with a pointer to the policy;
 fix it and resubmit rather than starting over.
 
-The package is ~500 MB because the Kokoro model is 338 MB of it. That is well
+The package is about 511 MB: the Kokoro voice is 338 MB of it and
+`whisper-base`, the meeting tracker's first model, another 145 MB. That is well
 inside the Store's limits. The alternative — a small download that fetches the
 model on first run — would break the one promise the app is making, so it
 stays in the package.

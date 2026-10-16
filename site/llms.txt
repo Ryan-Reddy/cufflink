@@ -1,0 +1,13 @@
+# cufflink
+
+> cufflink is a free, open-source Windows app that reads any selected text aloud, fully offline. Select text in any program, press Ctrl+Alt+M, and it reads it out while lighting up each word. No account, no network, nothing leaves the computer.
+
+## Pages
+
+- [Home](https://cufflink.reddy.world/): what cufflink does, its keyboard shortcuts, the voices, and how to install it
+- [Privacy policy](https://cufflink.reddy.world/privacy/): what cufflink stores, what it downloads, and what it never sends
+
+## Elsewhere
+
+- [Source code](https://github.com/Ryan-Reddy/cufflink): the code, the issues, and the README with the technical detail (GPL-3.0)
+- [Ryan Reddy](https://reddy.world): who makes it

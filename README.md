@@ -1,10 +1,12 @@
 # cufflink
 
-*Formerly Murmur — renamed for the Microsoft Store, where that name was already taken. The repository keeps its old name for now.*
+*Formerly Murmur — renamed for the Microsoft Store, where that name was already taken.*
 
 Reads any selected text aloud, anywhere on Windows, fully offline. Powered by
 [Kokoro-82M](https://github.com/thewh1teagle/kokoro-onnx) — nothing ever leaves
 your machine.
+
+**Website: [cufflink.reddy.world](https://cufflink.reddy.world)**
 
 Voice: 70% `bf_emma` + 30% `af_nicole` (British, sweet, a little raspy).
 Tweak the `BLEND` constant in `cufflink.py` to taste.
@@ -80,7 +82,7 @@ system's mouse input path at all.
 One line in PowerShell, nothing to download first:
 
 ```powershell
-irm https://raw.githubusercontent.com/Ryan-Reddy/murmur/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Ryan-Reddy/cufflink/main/install.ps1 | iex
 ```
 
 That fetches cufflink into `%USERPROFILE%\cufflink`, finds (or installs) Python,
@@ -89,14 +91,14 @@ shortcuts. It uses `git` when it is there and falls back to the source zip when
 it is not, so nothing has to be installed beforehand. To put it somewhere else:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Ryan-Reddy/murmur/main/install.ps1))) -InstallDir D:\cufflink
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Ryan-Reddy/cufflink/main/install.ps1))) -InstallDir D:\cufflink
 ```
 
 Or clone it yourself and double-click **`Install.cmd`**:
 
 ```
-git clone https://github.com/Ryan-Reddy/murmur
-cd murmur
+git clone https://github.com/Ryan-Reddy/cufflink
+cd cufflink
 .\Install.cmd
 ```
 
@@ -107,8 +109,10 @@ and checks them against a known SHA-256 before keeping them. It is safe to run
 again; anything already in place is left alone. `-Unattended` skips the
 questions, `-Autostart` answers the startup one with yes.
 
-That one download is the only time cufflink touches the network. After it, the
-machine can be offline forever.
+After that one download, reading aloud never touches the network again; the
+machine can be offline forever. The meeting tracker is the one exception: the
+first time it is used it fetches `whisper-small` (484 MB) to refine its
+transcripts, and never again after that.
 
 Afterwards, **`cufflink.cmd`** is the thing to double-click — it puts up the
 reddy.world banner, starts cufflink, and closes itself while cufflink stays in the

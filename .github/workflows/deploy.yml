@@ -1,0 +1,68 @@
+name: Test and deploy
+
+# cufflink.reddy.world: a preview channel on every pull request (one comment,
+# updated on every push, gone after 7 days or when the PR closes; see
+# preview-cleanup.yml) and the live site on main.
+#
+# The deploy itself is the shared one in repo.template.reddy.world, pinned to
+# a commit: tag v1 predates its discoverability check.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # The app is Windows-only (keyboard hooks, WASAPI loopback), and so are
+    # its tests. Anything needing the model files skips itself.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests
+
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # the sitemap's lastmod comes from each page's last commit
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: python -m pip install pillow markdown
+      - run: python site/build.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: _site
+          retention-days: 7
+
+  deploy:
+    needs: [test, site]
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    uses: Ryan-Reddy/repo.template.reddy.world/.github/workflows/firebase-deploy.yml@197e58e5eb100ef2575cb19b0f1ebddaa8961269
+    with:
+      project-id: getreddyworld
+      target: cufflink
+      artifact-name: site
+      artifact-path: _site
+      expires: 7d
+      site-url: https://cufflink.reddy.world
+      discoverable: required
+    secrets:
+      firebase_service_account: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GETREDDYWORLD }}
