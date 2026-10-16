@@ -208,11 +208,10 @@ class EnergyGate:
     """Is this frame speech? Level against a learned noise floor.
 
     Deliberately the dumbest thing that works, and deliberately behind an
-    interface: anything with a `__call__(frame) -> bool` can replace it, and
-    the obvious upgrade is the Silero VAD that faster-whisper already ships
-    (onnxruntime is in the venv for Kokoro, so it costs no new dependency).
+    interface: anything with a `__call__(frame) -> bool` can replace it.
     Energy alone cannot tell a voice from a keyboard, and in a meeting there
-    is a lot of keyboard.
+    is a lot of keyboard -- which is what VoiceGate, below, is for. A meeting
+    uses that; this is still the half of it that learns the room.
     """
 
     def __init__(self, open_over_db: float = OPEN_OVER_DB,
@@ -235,6 +234,126 @@ class EnergyGate:
         rate = NOISE_RISE if db > self.noise_db else NOISE_FALL
         self.noise_db = max(self.floor_db, self.noise_db + rate * (db - self.noise_db))
         return False
+
+
+# How sure Silero has to be that a window is speech. Its own defaults: open at
+# 0.5, and once open stay open down to 0.15 less, so a soft syllable in the
+# middle of a word does not close the gate on the rest of it.
+VAD_OPEN = 0.5
+VAD_CLOSE = 0.35
+# The model takes 512 samples at 16 kHz (32 ms) plus the last 64 of the window
+# before, and carries its own state from one call to the next.
+VAD_WINDOW = 512
+VAD_CONTEXT = 64
+
+
+def silero_path() -> str:
+    """faster-whisper's copy of the model, found without importing
+    faster-whisper, which would cost a second for a 2 MB file."""
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.find_spec("faster_whisper")
+    if spec is None or not spec.submodule_search_locations:
+        raise ImportError("faster-whisper is not installed")
+    path = Path(list(spec.submodule_search_locations)[0]) / "assets" / "silero_vad_v6.onnx"
+    if not path.exists():
+        raise FileNotFoundError(path)
+    return str(path)
+
+
+class SileroVAD:
+    """Silero's speech probability for a stream, one window at a time.
+
+    The model is the one faster-whisper ships for its own VAD filter, and
+    onnxruntime is already here for Kokoro, so this costs no new dependency.
+    faster-whisper's wrapper runs a whole file in one call; a meeting arrives
+    30 ms at a time, so this keeps the recurrent state and the 64-sample
+    context between calls instead. Frames are 480 samples and windows 512, so
+    the answer for a frame is the last window finished -- at most 32 ms old,
+    and PRE_ROLL already covers far more than that.
+    """
+
+    def __init__(self, path=None):
+        import onnxruntime
+
+        if path is None:
+            path = silero_path()
+        opts = onnxruntime.SessionOptions()
+        # One thread: a window is a fraction of a millisecond of work, and
+        # Whisper and Kokoro are the ones that need the cores.
+        opts.inter_op_num_threads = 1
+        opts.intra_op_num_threads = 1
+        opts.log_severity_level = 4
+        self.session = onnxruntime.InferenceSession(
+            path, providers=["CPUExecutionProvider"], sess_options=opts)
+        self.h = np.zeros((1, 1, 128), np.float32)
+        self.c = np.zeros((1, 1, 128), np.float32)
+        self.context = np.zeros(VAD_CONTEXT, np.float32)
+        self.pending = np.zeros(0, np.float32)
+        self.probability = 0.0
+
+    def __call__(self, frame) -> float:
+        self.pending = np.concatenate(
+            [self.pending, np.asarray(frame, np.float32).reshape(-1)])
+        while len(self.pending) >= VAD_WINDOW:
+            window, self.pending = (self.pending[:VAD_WINDOW],
+                                    self.pending[VAD_WINDOW:])
+            batch = np.concatenate([self.context, window])[None, :]
+            out, self.h, self.c = self.session.run(
+                None, {"input": batch, "h": self.h, "c": self.c})
+            self.context = window[-VAD_CONTEXT:]
+            self.probability = float(np.asarray(out).reshape(-1)[0])
+        return self.probability
+
+
+class VoiceGate:
+    """Loud enough, *and* a voice.
+
+    EnergyGate still decides whether anything is there at all -- it is what
+    learns the room, and Segmenter reads its floor -- and Silero decides
+    whether what is there is somebody talking. A key press is loud, short and
+    not a voice, which is exactly the case energy alone cannot tell apart.
+    """
+
+    def __init__(self, energy=None, vad=None,
+                 open_at: float = VAD_OPEN, close_at: float = VAD_CLOSE):
+        self.energy = energy if energy is not None else EnergyGate()
+        self.vad = vad if vad is not None else SileroVAD()
+        self.open_at = open_at
+        self.close_at = close_at
+        self.voice = False
+
+    # Segmenter measures carried-over frames against the energy threshold.
+    @property
+    def noise_db(self) -> float:
+        return self.energy.noise_db
+
+    @property
+    def open_over_db(self) -> float:
+        return self.energy.open_over_db
+
+    @property
+    def floor_db(self) -> float:
+        return self.energy.floor_db
+
+    def __call__(self, frame) -> bool:
+        loud = self.energy(frame)
+        p = self.vad(frame)
+        self.voice = p >= (self.close_at if self.voice else self.open_at)
+        return loud and self.voice
+
+
+def default_gate():
+    """A VoiceGate when Silero loads, else the plain EnergyGate.
+
+    onnxruntime and faster-whisper are both in requirements.txt, so the
+    fallback is for a broken install, which should still hear something
+    rather than nothing."""
+    try:
+        return VoiceGate()
+    except Exception:
+        return EnergyGate()
 
 
 # --------------------------------------------------------------- segmenter
@@ -583,8 +702,11 @@ class Meeting:
     microphone, a model, or a meeting.
     """
 
-    def __init__(self, transcriber, on_line=None, refine: bool = True):
+    def __init__(self, transcriber, on_line=None, refine: bool = True,
+                 gate=default_gate):
         self.transcriber = transcriber
+        # Called once per source, so each one learns its own room.
+        self.gate = gate
         self.on_line = on_line
         self.transcript = Transcript()
         self.segmenters: dict[str, Segmenter] = {}
@@ -598,7 +720,7 @@ class Meeting:
 
     def feed(self, source: str, frame) -> Optional[Line]:
         if source not in self.segmenters:
-            self.segmenters[source] = Segmenter(source)
+            self.segmenters[source] = Segmenter(source, gate=self.gate())
         return self._transcribe(self.segmenters[source].push(frame))
 
     def close(self) -> None:

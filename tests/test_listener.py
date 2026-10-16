@@ -12,12 +12,14 @@ costs more words than dropping from small to base ever would.
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+import listener  # noqa: E402
 from listener import (  # noqa: E402
     FRAME,
     FRAME_SECONDS,
@@ -35,6 +37,7 @@ from listener import (  # noqa: E402
     Meeting,
     Segmenter,
     Transcript,
+    VoiceGate,
     WhisperTranscriber,
     mono16k,
     rms_db,
@@ -55,7 +58,10 @@ def hiss(seconds, db=-40.0, seed=0):
 
 
 def voice(seconds, db=-20.0, hz=180.0):
-    """Stands in for a voice: a low tone at a level a speaker would hit."""
+    """Stands in for a voice: a low tone at a level a speaker would hit.
+
+    Only to the energy gate. To Silero a tone is not a voice, so the meeting
+    tests built on it hand Meeting the plain EnergyGate."""
     t = np.arange(int(seconds * SAMPLE_RATE)) / SAMPLE_RATE
     amp = 10 ** (db / 20) * np.sqrt(2)  # a sine's RMS is its amplitude / root two
     return (np.sin(2 * np.pi * hz * t) * amp).astype(np.float32)
@@ -167,6 +173,101 @@ class Gate(unittest.TestCase):
 
     def test_rms_db_of_silence_is_far_below_anything_audible(self):
         self.assertLess(rms_db(quiet(0.03)), -100)
+
+
+def clicks(seconds, every=0.12, db=-12.0, seed=1):
+    """Stands in for typing: a short decaying burst of noise every keystroke."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * SAMPLE_RATE)
+    x = np.zeros(n, dtype=np.float32)
+    burst = int(0.006 * SAMPLE_RATE)
+    envelope = np.exp(-np.arange(burst) / (burst / 4))
+    for at in range(0, n - burst, int(every * SAMPLE_RATE)):
+        x[at:at + burst] += rng.standard_normal(burst) * envelope * 10 ** (db / 20) * 3
+    return x
+
+
+class Scripted:
+    """A VAD that says what it is told to: one probability per frame."""
+
+    def __init__(self, *probabilities):
+        self.probabilities = list(probabilities)
+
+    def __call__(self, frame):
+        if len(self.probabilities) > 1:
+            return self.probabilities.pop(0)
+        return self.probabilities[0]
+
+
+def warmed(gate):
+    """Past the energy gate's warm-up, on room tone."""
+    for f in framed(hiss(WARMUP_FRAMES * FRAME_SECONDS + 0.1)):
+        gate(f)
+    return gate
+
+
+class VoiceGates(unittest.TestCase):
+    """Loud enough and a voice (#4). The energy half is the gate above; what
+    is new is the AND, the hysteresis, and that Segmenter still works on it."""
+
+    def test_loud_but_not_a_voice_stays_shut(self):
+        gate = warmed(VoiceGate(vad=Scripted(0.1)))
+        self.assertFalse(any(gate(f) for f in framed(voice(0.5))))
+
+    def test_a_voice_too_quiet_to_be_in_this_room_stays_shut(self):
+        gate = warmed(VoiceGate(vad=Scripted(0.9)))
+        self.assertFalse(any(gate(f) for f in framed(hiss(0.5))))
+
+    def test_loud_and_a_voice_opens(self):
+        gate = warmed(VoiceGate(vad=Scripted(0.9)))
+        self.assertTrue(all(gate(f) for f in framed(voice(0.3))))
+
+    def test_once_open_it_takes_less_to_stay_open(self):
+        gate = warmed(VoiceGate(vad=Scripted(0.0)))
+        gate.vad = Scripted(0.6, 0.4, 0.3, 0.4)
+        f = framed(voice(0.12))
+        self.assertEqual([gate(x) for x in f], [True, True, False, False])
+
+    def test_the_segmenter_cuts_on_it_as_it_does_on_energy(self):
+        """Including a forced cut, which reads the gate's floor."""
+        signal = framed(quiet(0.5), voice(30.0), quiet(1.5))
+        energy = run(Segmenter(YOU, gate=EnergyGate()), signal)
+        voiced = run(Segmenter(YOU, gate=VoiceGate(vad=Scripted(0.9))), signal)
+        self.assertEqual([(u.start, u.end) for u in voiced],
+                         [(u.start, u.end) for u in energy])
+
+    def test_without_silero_a_meeting_still_hears_on_energy(self):
+        with mock.patch.object(listener, "SileroVAD", side_effect=ImportError):
+            self.assertIsInstance(listener.default_gate(), EnergyGate)
+
+
+def silero():
+    try:
+        return listener.SileroVAD()
+    except Exception:
+        return None
+
+
+@unittest.skipIf(silero() is None, "onnxruntime or faster-whisper missing")
+class Silero(unittest.TestCase):
+    """The real model, on signals simple enough to know the answer."""
+
+    def test_typing_cuts_utterances_on_energy_and_none_on_voice(self):
+        signal = framed(hiss(0.5), clicks(5.0) + hiss(5.0), hiss(1.5))
+        self.assertGreater(len(run(Segmenter(YOU, gate=EnergyGate()), signal)), 0)
+        self.assertEqual(run(Segmenter(YOU, gate=VoiceGate()), signal), [])
+
+    def test_frames_and_windows_do_not_line_up_and_nothing_is_lost(self):
+        vad = listener.SileroVAD()
+        for f in framed(hiss(16 * FRAME / SAMPLE_RATE)):
+            p = vad(f)
+            self.assertGreaterEqual(p, 0.0)
+            self.assertLessEqual(p, 1.0)
+        # 16 frames of 480 are 15 windows of 512, exactly.
+        self.assertEqual(len(vad.pending), 0)
+
+    def test_a_meeting_listens_with_it_by_default(self):
+        self.assertIsInstance(listener.default_gate(), VoiceGate)
 
 
 # ------------------------------------------------------------- segmenter
@@ -344,7 +445,7 @@ class Meetings(unittest.TestCase):
     def test_who_said_it_comes_from_which_stream_it_arrived_on(self):
         """No diarisation. Your microphone is you; what the speakers play is
         everyone else. It is the one attribution that cannot be wrong."""
-        m = Meeting(Canned("mine", "theirs"))
+        m = Meeting(Canned("mine", "theirs"), gate=EnergyGate)
         for f in framed(quiet(0.5), voice(1.0), quiet(1.5)):
             m.feed(YOU, f)
         for f in framed(quiet(0.5), voice(1.0), quiet(1.5)):
@@ -355,7 +456,7 @@ class Meetings(unittest.TestCase):
     def test_each_source_learns_its_own_noise_floor(self):
         """A headset microphone and a conference call arrive at completely
         different levels; one shared threshold gets one of them wrong."""
-        m = Meeting(Canned())
+        m = Meeting(Canned(), gate=EnergyGate)
         for f in framed(hiss(1.0, db=-60)):
             m.feed(YOU, f)
         for f in framed(hiss(1.0, db=-30)):
@@ -367,20 +468,20 @@ class Meetings(unittest.TestCase):
         """Idle cost is the thing this project keeps getting right. Silence
         must not run inference."""
         canned = Canned()
-        m = Meeting(canned)
+        m = Meeting(canned, gate=EnergyGate)
         for f in framed(hiss(10.0)):
             m.feed(YOU, f)
         self.assertEqual(canned.calls, [])
 
     def test_lines_are_announced_as_they_land(self):
         heard = []
-        m = Meeting(Canned("first"), on_line=heard.append)
+        m = Meeting(Canned("first"), on_line=heard.append, gate=EnergyGate)
         for f in framed(quiet(0.5), voice(1.0), quiet(1.5)):
             m.feed(YOU, f)
         self.assertEqual([l.text for l in heard], ["first"])
 
     def test_closing_transcribes_what_was_still_in_hand(self):
-        m = Meeting(Canned("cut off mid-"))
+        m = Meeting(Canned("cut off mid-"), gate=EnergyGate)
         for f in framed(quiet(0.5), voice(2.0)):
             m.feed(YOU, f)
         self.assertEqual(m.transcript.lines, [])

@@ -23,11 +23,13 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from listener import FRAME, SAMPLE_RATE, THEM, YOU, Meeting  # noqa: E402
+from listener import FRAME, SAMPLE_RATE, THEM, YOU, EnergyGate, Meeting  # noqa: E402
 from minutes import Minutes  # noqa: E402
 
 
 def voice(seconds, db=-20.0, hz=180.0):
+    """A tone, which only the energy gate takes for a voice -- hence
+    gate=EnergyGate on every Meeting here."""
     t = np.arange(int(seconds * SAMPLE_RATE)) / SAMPLE_RATE
     amp = 10 ** (db / 20) * np.sqrt(2)
     return (np.sin(2 * np.pi * hz * t) * amp).astype(np.float32)
@@ -64,7 +66,8 @@ class TwoPasses(unittest.TestCase):
         self.heard = []
         self.fast = Canned("rough werds hear")
         self.slow = Canned("rough words here")
-        self.meeting = Meeting(self.fast, on_line=self.heard.append)
+        self.meeting = Meeting(self.fast, on_line=self.heard.append,
+                               gate=EnergyGate)
 
     def test_the_fast_pass_lands_first_and_alone(self):
         say(self.meeting)
@@ -99,7 +102,8 @@ class TwoPasses(unittest.TestCase):
     def test_an_identical_second_opinion_changes_nothing(self):
         """No flicker, and no pointless redraw, when the fast model was right
         -- which on clear speech is most of the time."""
-        meeting = Meeting(Canned("the same"), on_line=self.heard.append)
+        meeting = Meeting(Canned("the same"), on_line=self.heard.append,
+                          gate=EnergyGate)
         say(meeting)
         self.heard.clear()
         self.assertIsNone(meeting.refine(Canned("the same")))
@@ -114,12 +118,13 @@ class TwoPasses(unittest.TestCase):
         self.assertEqual(len(self.meeting.awaiting), 0)
 
     def test_refinement_can_be_turned_off_and_then_costs_no_memory(self):
-        meeting = Meeting(Canned("once only"), refine=False)
+        meeting = Meeting(Canned("once only"), refine=False, gate=EnergyGate)
         say(meeting)
         self.assertEqual(len(meeting.awaiting), 0)
 
     def test_both_sources_are_refined(self):
-        meeting = Meeting(Canned("mine", "theirs"), on_line=self.heard.append)
+        meeting = Meeting(Canned("mine", "theirs"), on_line=self.heard.append,
+                          gate=EnergyGate)
         say(meeting, YOU)
         say(meeting, THEM)
         better = Canned("mine, better", "theirs, better")
@@ -130,7 +135,8 @@ class TwoPasses(unittest.TestCase):
 
     def test_the_oldest_waiting_line_is_refined_first(self):
         """So the transcript settles from the top down, the way it was said."""
-        meeting = Meeting(Canned("first", "second"), on_line=self.heard.append)
+        meeting = Meeting(Canned("first", "second"), on_line=self.heard.append,
+                          gate=EnergyGate)
         say(meeting)
         say(meeting)
         got = meeting.refine(Canned("first, better"))
@@ -143,7 +149,7 @@ class MarksSurviveRefinement(unittest.TestCase):
     def setUp(self):
         self.minutes = Minutes()
         self.meeting = Meeting(Canned("we shood ship fryday"),
-                               on_line=self.minutes.add)
+                               on_line=self.minutes.add, gate=EnergyGate)
         say(self.meeting)
         self.line = self.minutes.lines[0]
 
