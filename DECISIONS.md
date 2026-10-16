@@ -301,10 +301,33 @@ will ever go through this.
 Two known-bad seams, both marked in the source. Cutting a monologue at 25
 seconds lands wherever the clock says rather than at a pause; Whisper's window
 is 30 s and ignores the rest, so it has to be cut somewhere, but the quietest
-frame in the last second would be a better somewhere. And the gate is energy
-against a learned floor, which cannot tell a voice from a keyboard — the
-upgrade is the Silero VAD `faster-whisper` already ships, and onnxruntime is
-in the venv for Kokoro already, so it costs no new dependency.
+frame in the last second would be a better somewhere. (The second seam, a
+gate that could not tell a voice from a keyboard, is the next section.)
+
+## The gate asks two questions, not one
+
+Energy against a learned floor cannot tell a voice from a keyboard, and every
+false open is clatter handed to Whisper, which is where invented sentences
+come from. So a meeting now listens through `VoiceGate`: the energy gate still
+says whether anything is there (and learns the room), and the Silero VAD that
+`faster-whisper` already ships says whether it is somebody talking. Both must
+agree. It costs no new dependency — onnxruntime is here for Kokoro.
+
+Measured with `gatebench.py` on 4.2 minutes of real typing (five public-domain
+recordings from Wikimedia Commons) and the 13 Kokoro samples, through the real
+`Segmenter`:
+
+| | utterances cut from typing alone | per minute of typing | speech kept, quiet room | speech kept, over typing | utterances cut from the typing around it | cost per 30 ms frame |
+|---|---|---|---|---|---|---|
+| EnergyGate | 16 | 3.8 | 100.0% | 100.0% | 2 | 0.014 ms |
+| VoiceGate | **0** | **0.0** | 100.0% | 100.0% | **0** | 0.21–0.34 ms (two runs) |
+
+Sixteen trips to Whisper with nothing said, down to none, and not a frame of
+speech lost. A third of a millisecond per 30 ms frame is about 1% of one core.
+
+What it does not show: the speech is Kokoro's, not a person's, and the typing
+was recorded on its own and mixed in rather than heard through the same
+microphone as a voice. A real meeting is the test that is still owed (#1).
 
 ## Verbatim means every sentence, not every sound
 
