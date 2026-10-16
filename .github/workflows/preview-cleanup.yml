@@ -31,6 +31,8 @@ jobs:
       PR: ${{ github.event.pull_request.number || inputs.pr }}
       SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GETREDDYWORLD }}
     steps:
+      # The CLI wants firebase.json even to list a site's channels.
+      - uses: actions/checkout@v5
       - name: Say why nothing is deleted
         if: env.SA == ''
         run: echo "::notice::No FIREBASE_SERVICE_ACCOUNT_GETREDDYWORLD secret, so no preview to delete. Any channel still expires on its own."
