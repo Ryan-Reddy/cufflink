@@ -46,6 +46,7 @@ Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue
     --splash (Join-Path $root 'assets\splash.png') `
     --version-file (Join-Path $root 'version_info.txt') `
     --collect-all espeakng_loader --collect-all phonemizer --collect-all kokoro_onnx `
+    --hidden-import meeting --collect-all faster_whisper --collect-all ctranslate2 `
     (Join-Path $root 'cufflink.py')
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller failed.' }
 Good 'cufflink.exe built'

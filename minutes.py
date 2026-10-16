@@ -5,10 +5,10 @@ about it at the time: which lines to come back to, and the note you typed
 while somebody was still talking. Both are worth more during the meeting than
 after it, which is why they have to cost one click and one keystroke.
 
-Nothing here draws anything or opens a socket -- `bubbler.py` shows it and
-`meeting.py` wires it up. Keeping it apart is what lets the interesting half
-be tested without a window, and lets the assistant drive the same actions over
-the port that the window drives with the mouse.
+Nothing here draws anything or opens a socket -- the pill in `cufflink.py`
+shows it and `meeting.py` wires it up. Keeping it apart is what lets the
+interesting half be tested without a window, and lets the assistant drive the
+same actions over the port that the pill drives with the mouse.
 """
 
 import json

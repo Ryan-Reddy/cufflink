@@ -2,7 +2,7 @@
 
     venv\\Scripts\\python.exe -m unittest discover -s tests -v
 
-The point of the bubbler is that marking a line takes one click and a note
+The point of the meeting pill is that marking a line takes one click and a note
 takes one keystroke, in the middle of a meeting, without looking away from
 it. So the thing being tested is: does a mark land on the line you meant, and
 does everything you did survive to the saved document.

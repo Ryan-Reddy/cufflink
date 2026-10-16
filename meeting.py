@@ -1,4 +1,4 @@
-"""Follow a meeting: both sides of it, live, in a window you can mark up.
+"""Follow a meeting: both sides of it, live, in cufflink's pill.
 
     venv\\Scripts\\python.exe meeting.py
     venv\\Scripts\\python.exe meeting.py --language nl
@@ -14,22 +14,16 @@ somebody is still talking; `small` follows a few seconds behind and rewrites
 them properly, keeping whatever you marked or noted in the meantime. Real time
 was never the goal -- being readable now and right shortly is.
 
-While it runs:
+It has no window and no keys of its own. The pill in cufflink is the window
+and holds the keys (Ctrl+Alt+L record, Ctrl+Alt+K mark, Ctrl+Alt+N note), so
+there is one keyboard hook on the machine, in the process that is not busy
+running Whisper (#19). Everything is a line on port 52720, so the pill -- or
+the assistant -- can drive it:
 
-    Ctrl+Alt+L            start or stop recording -- it starts stopped
-    click a bubble        mark it to come back to
-    Ctrl+Alt+K            mark the line that just went past
-    Ctrl+Alt+N            jump to the note box
-    type, Enter           hang a note off whatever is being said
+    ::hello   ::record   ::pause   ::lines 10   ::check   ::note ...   ::stop
 
-Any of those three can be moved: --key-record, --key-mark, --key-note, or ""
-to do without. They avoid cufflink's own keys and anything with alt+r in it,
-which belongs to the NVIDIA overlay.
-
-and everything above is also a line on port 52720, so the assistant can read
-the transcript, mark a line or leave a note without touching your keyboard:
-
-    ::record   ::pause   ::lines 10   ::check   ::note ...   ::marked   ::save
+`::hello` answers `cufflink-meeting <pid>`, which is how the pill knows it is
+talking to this and not to whatever else happens to hold the port.
 
 It opens holding nothing and recording nothing, and says so on its face. It
 hears the far end by capturing your output device, which means it hears
@@ -41,11 +35,12 @@ way ahead of time with `--fetch`, which is worth doing before you need it:
 
     venv\\Scripts\\python.exe meeting.py --model small --fetch
 
-The transcript is written out when the window closes. Audio never is.
+The transcript is written out when it stops. Audio never is.
 """
 
 import argparse
 import json
+import os
 import queue
 import socket
 import sys
@@ -55,27 +50,16 @@ from datetime import datetime
 from pathlib import Path
 
 import listener
-from bubbler import Bubbler
+import meetingctl
 from capture import Loopback, Microphone
 from listener import FRAME_SECONDS, MODELS, THEM, YOU, WhisperTranscriber
 from minutes import Minutes
 
 ROOT = Path(__file__).resolve().parent
 MODEL_ROOT = listener.model_cache()
-MEETING_PORT = 52720            # cufflink is on 52719; this is the next along
+MEETING_PORT = meetingctl.MEETING_PORT
 
-# Kept clear of two things: cufflink's own set (m, space, s, b, up, down, g)
-# and anything with alt+r in it, which is the NVIDIA overlay -- a note already
-# written at the top of cufflink.py and then walked straight into here.
-#
-# The collision is not the ordinary kind. `keyboard` installs a low-level hook
-# rather than registering with Windows, so a taken combination does not fail
-# to bind: both handlers fire. Ctrl+Alt+R started a recording *and* opened the
-# NVIDIA overlay, and nothing anywhere reported a conflict.
-KEY_RECORD = "ctrl+alt+l"       # L for listen
-KEY_MARK = "ctrl+alt+k"         # K for keep this, I will come back to it
-KEY_NOTE = "ctrl+alt+n"         # N for note
-HELP = ("::where  ::state  ::dump  ::devices  ::use <you|them> [n]"
+HELP = ("::hello  ::where  ::state  ::dump  ::devices  ::use <you|them> [n]"
         "  ::show  ::record  ::pause  ::lines [n]  ::notes  ::marked  ::status"
         "  ::check [n]  ::uncheck [n]  ::note <text>  ::save [path]"
         "  ::stop  ::help")
@@ -136,7 +120,7 @@ def migrate_meetings(local=None) -> int:
 
 
 class _NoWindow:
-    """Stands in for the bubbler when the pill is the window.
+    """What the session talks to instead of a window: the pill is the window.
 
     Same shape as the real one so nothing that drives a session has to ask
     which it is talking to -- the same trick cufflink plays with `_Loading`
@@ -187,10 +171,8 @@ class Session:
         self.sources = []
         self._saved = False
         self._late = False
-        self.bubbler = _NoWindow() if args.headless else Bubbler(
-            self.minutes, on_close=self.stop, on_save=self.save,
-            on_record=self.record, on_levels=self.levels,
-            on_devices=self.devices, on_pick=self.pick)
+        self.window = _NoWindow()
+        self.server = None
         self.listener = listener.Meeting(
             self._transcriber(args.model),
             on_line=self._heard, refine=bool(args.refine_with))
@@ -214,7 +196,7 @@ class Session:
         """Called on the transcribe thread; tkinter is not thread-safe, so
         the window is only ever touched through post()."""
         self.minutes.add(line)
-        self.bubbler.post(self.bubbler.refresh)
+        self.window.post(self.window.refresh)
 
     def _transcribe(self):
         while self.running.is_set():
@@ -228,7 +210,7 @@ class Session:
                 print(f"transcribe: {blew_up}", file=sys.stderr)
 
     def start(self):
-        """Open the window and the port. Deliberately *not* the microphone.
+        """Open the port. Deliberately *not* the microphone.
 
         A tool that can hear both sides of a call must never be recording
         because it happens to be open. It starts holding nothing, says so on
@@ -237,6 +219,10 @@ class Session:
         capturing the moment it launched, and quietly transcribed a personal
         voice message that was playing through the speakers at the time.
         """
+        # The port first, before anything else starts. Without it nothing can
+        # stop this process short of Task Manager -- which is how a meeting
+        # was rescued once, with another program holding the port.
+        self.server = self._bind()
         MODEL_ROOT.mkdir(parents=True, exist_ok=True)
         brought = migrate_meetings()
         if brought:
@@ -246,7 +232,6 @@ class Session:
         threading.Thread(target=self._improve, daemon=True).start()
         threading.Thread(target=self._transcribe, daemon=True).start()
         threading.Thread(target=self._serve, daemon=True).start()
-        self._hotkeys()
         if self.args.record:
             self.record(True)
 
@@ -324,7 +309,7 @@ class Session:
             self.better_ready.set()
 
     def _model_state(self, text):
-        self.bubbler.post(lambda: self.bubbler.set_status(text))
+        self.window.post(lambda: self.window.set_status(text))
 
     # Host APIs, best first. WASAPI is the low-latency route on anything since
     # Vista and the right default for capture; MME is the 1991 one and is here
@@ -434,11 +419,11 @@ class Session:
         behind = self.frames.qsize() * FRAME_SECONDS
         if behind >= self.BEHIND_SECONDS:
             self._late = True
-            self.bubbler.set_status(
+            self.window.set_status(
                 f"{behind:.0f}s behind -- try a smaller --model")
         elif getattr(self, "_late", False) and behind < 1.0:
             self._late = False
-            self.bubbler.set_status("caught up")
+            self.window.set_status("caught up")
 
     @property
     def recording(self) -> bool:
@@ -475,13 +460,13 @@ class Session:
                 # Never silently: a half-open meeting transcribes as one voice
                 # and looks exactly like a quiet one.
                 print(f"{source}: {failed}", file=sys.stderr)
-                self.bubbler.post(
-                    lambda s=source, f=failed: self.bubbler.set_status(f"{s}: {f}"))
+                self.window.post(
+                    lambda s=source, f=failed: self.window.set_status(f"{s}: {f}"))
         self._say_state()
         return f"recording {' and '.join(opened)}" if opened else "nothing to record"
 
     def _say_state(self):
-        self.bubbler.post(lambda: self.bubbler.set_recording(self.recording))
+        self.window.post(lambda: self.window.set_recording(self.recording))
 
     def stop(self):
         """Closing the window calls this, and so does the mainloop unwinding
@@ -518,61 +503,29 @@ class Session:
         stamp = datetime.now().strftime("%Y-%m-%d %H%M%S")
         return state_home() / "meetings" / f"{stamp}.txt"
 
-    # ------------------------------------------------------------ hotkeys
-
-    def _hotkeys(self):
-        """Marking without touching the window, because the window is not
-        where your attention is during a meeting.
-
-        Which keys were actually taken is printed, because a clash here is
-        silent by construction: the hook fires our handler and the other
-        application's, so the only symptom is something else also happening.
-        """
-        try:
-            import keyboard
-        except Exception:
-            print("hotkeys: unavailable", file=sys.stderr)
-            return
-
-        def check():
-            self.minutes.check()
-            self.bubbler.post(self.bubbler.refresh)
-
-        def toggle():
-            self.record(not self.recording)
-
-        def jot():
-            def focus():
-                self.bubbler.root.lift()
-                self.bubbler.entry.focus_force()
-            self.bubbler.post(focus)
-
-        wanted = ((self.args.key_record, toggle, "record"),
-                  (self.args.key_mark, check, "mark"),
-                  (self.args.key_note, jot, "note"))
-        live = []
-        for combination, action, what in wanted:
-            if not combination:
-                continue
-            try:
-                keyboard.add_hotkey(combination, action)
-                live.append(f"{combination} {what}")
-            except Exception as refused:
-                print(f"hotkeys: {combination} refused ({refused})", file=sys.stderr)
-        if live:
-            print("hotkeys: " + ",  ".join(live))
-
     # --------------------------------------------------------------- port
 
-    def _serve(self):
+    def _bind(self):
+        """The control port, or no session at all.
+
+        No SO_REUSEADDR: on Windows it lets a second socket bind a port that
+        is already taken, which is the opposite of what is wanted here.
+        """
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             server.bind(("127.0.0.1", MEETING_PORT))
         except OSError:
-            print(f"Port {MEETING_PORT} taken; control disabled.", file=sys.stderr)
-            return
+            server.close()
+            _, pid, name = meetingctl.port_holder(MEETING_PORT)
+            who = f"{name} (pid {pid})" if name else "another program"
+            raise SystemExit(
+                f"port {MEETING_PORT} is held by {who}; not starting, because "
+                f"nothing could stop or pause the tracker without it.")
         server.listen(2)
+        return server
+
+    def _serve(self):
+        server = self.server
         while self.running.is_set():
             try:
                 conn, _ = server.accept()
@@ -598,6 +551,8 @@ class Session:
         arg = arg.strip()
         if name == "help":
             return HELP
+        if name == "hello":
+            return f"{meetingctl.HELLO} {os.getpid()}"
         if name == "save":
             return self.save(arg or None)
         if name in ("record", "pause"):
@@ -615,7 +570,7 @@ class Session:
                 "lines": len(self.minutes.lines),
                 "checked": len(self.minutes.checked()),
                 "notes": len(self.minutes.notes),
-                "status": getattr(self.bubbler, "status", ""),
+                "status": getattr(self.window, "status", ""),
                 "behind": round(self.frames.qsize() * FRAME_SECONDS, 1),
                 "model": self.args.model,
                 "refining": self.args.refine_with or "",
@@ -629,20 +584,20 @@ class Session:
             index = index.strip()
             return self.pick(source, int(index) if index.isdigit() else None)
         if name == "show":
-            self.bubbler.post(self.bubbler.appear)
+            self.window.post(self.window.appear)
             return "here"
         if name == "stop":
-            self.bubbler.post(self.bubbler._close)
+            self.window.post(self.window._close)
             return "stopping"
         answer = self.minutes.command(name, arg)
         if not answer.startswith("? unknown"):
-            self.bubbler.post(self.bubbler.refresh)
+            self.window.post(self.window.refresh)
         return answer
 
     def run(self):
         self.start()
         try:
-            self.bubbler.run()
+            self.window.run()
         finally:
             self.stop()
 
@@ -695,7 +650,20 @@ def list_devices():
         print(f"  none: {no_loopback}")
 
 
-def main():
+def below_normal():
+    """However it was started -- by the pill, which asks for this already, or
+    by hand -- the meeting app gets the CPU first."""
+    try:
+        import ctypes
+
+        kernel = ctypes.windll.kernel32
+        kernel.SetPriorityClass(kernel.GetCurrentProcess(), 0x00004000)
+    except Exception:
+        pass
+
+
+def main(argv=None):
+    below_normal()
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--model", default="base", choices=list(MODELS),
@@ -719,19 +687,12 @@ def main():
                    help="download the model and stop, so a meeting never waits")
     p.add_argument("--devices", action="store_true",
                    help="list what can be captured, and stop")
-    p.add_argument("--key-record", default=KEY_RECORD,
-                   help=f"start/stop recording (default: {KEY_RECORD}); "
-                        f'"" for none')
-    p.add_argument("--key-mark", default=KEY_MARK,
-                   help=f"mark the line just said (default: {KEY_MARK})")
-    p.add_argument("--key-note", default=KEY_NOTE,
-                   help=f"jump to the note box (default: {KEY_NOTE})")
     p.add_argument("--headless", action="store_true",
-                   help="no window of its own: the pill in cufflink is the "
-                        "window, and this is only capture and transcription")
+                   help="accepted and ignored: there is no other way to run "
+                        "now, the pill in cufflink is the window")
     p.add_argument("--record", action="store_true",
                    help="start recording at once (default: wait to be asked)")
-    args = p.parse_args()
+    args = p.parse_args(argv)
     if args.devices:
         return list_devices()
     if args.fetch:
