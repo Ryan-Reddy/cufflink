@@ -25,12 +25,15 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 OUT = ROOT / "_site"
 SCREENSHOTS = ROOT / "assets" / "store" / "screenshots"
-BG = (13, 27, 51)
+# The reading window, captured from the running app on Windows: a sentence of
+# the README selected in Notepad, Ctrl+Alt+M, the word "lights" being read.
+# Outside its rounded corners is transparent.
+READING = ROOT / "assets" / "site" / "reading-window.png"
+BG = (13, 27, 51)          # --bg in styles.css, and the plate behind the hero
 # (left, top, right, bottom) of the window in each Store screenshot.
 CROPS = {
-    "01-reading": (196, 322, 1170, 686),
     "02-voices": (776, 36, 1270, 720),
-}          # --bg in styles.css, and the plate behind the hero
+}
 
 
 def copy_site():
@@ -67,13 +70,15 @@ def pictures():
         im.save(img / f"{name}.png", optimize=True)
         im.save(img / f"{name}.webp", quality=88, method=6)
 
-    # Social card: the reading screenshot, cropped to 1200x630 around the pill.
-    im = Image.open(SCREENSHOTS / "01-reading.png").convert("RGB")
-    w, h = im.size
-    scale = 1200 / w
-    im = im.resize((1200, round(h * scale)), Image.LANCZOS)
-    top = (im.height - 630) // 2
-    im.crop((0, top, 1200, top + 630)).save(OUT / "og-image.png", optimize=True)
+    reading = Image.open(READING).convert("RGBA")
+    reading.save(img / "reading-window.png", optimize=True)
+    reading.save(img / "reading-window.webp", lossless=True, method=6)
+
+    # Social card: the reading window, doubled, on the page's background.
+    card = Image.new("RGB", (1200, 630), BG)
+    big = reading.resize((reading.width * 2, reading.height * 2), Image.LANCZOS)
+    card.paste(big, ((1200 - big.width) // 2, (630 - big.height) // 2), big)
+    card.save(OUT / "og-image.png", optimize=True)
 
     icons = OUT / "icons"
     icons.mkdir(exist_ok=True)

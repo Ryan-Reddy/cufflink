@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>cufflink: hear any text read aloud on Windows, offline</title>
-  <meta name="description" content="Select text anywhere in Windows and hear it read aloud, entirely on your own computer. No account, no network, nothing leaves your machine.">
+  <meta name="description" content="cufflink reads out loud any text you select on Windows and lights up each word as it goes. In meetings it writes down who said what. Offline, free, and private.">
   <link rel="canonical" href="https://cufflink.reddy.world/">
   <meta name="theme-color" content="#0d1b33">
   <meta name="color-scheme" content="dark">
@@ -18,12 +18,12 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="cufflink">
   <meta property="og:url" content="https://cufflink.reddy.world/">
-  <meta property="og:title" content="cufflink: select anything, press a key, hear it">
-  <meta property="og:description" content="Reads any selected text aloud, anywhere on Windows, fully offline.">
+  <meta property="og:title" content="cufflink: reading is easier when you can hear it">
+  <meta property="og:description" content="Reads out loud any text you select on Windows and lights up each word as it goes. In meetings it writes down who said what.">
   <meta property="og:image" content="https://cufflink.reddy.world/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="The cufflink reading window, with the word being read lit up.">
+  <meta property="og:image:alt" content="The cufflink reading window on Windows, reading a selected sentence aloud, with the word being read lit up.">
   <meta name="twitter:card" content="summary_large_image">
 
   <script type="application/ld+json">
@@ -33,7 +33,7 @@
     "name": "cufflink",
     "operatingSystem": "Windows 10, Windows 11",
     "applicationCategory": "UtilitiesApplication",
-    "description": "Reads any selected text aloud, anywhere on Windows, fully offline.",
+    "description": "Reads out loud any text you select on Windows and lights up each word as it goes. In meetings it writes down who said what.",
     "url": "https://cufflink.reddy.world/",
     "license": "https://www.gnu.org/licenses/gpl-3.0.html",
     "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
@@ -53,6 +53,7 @@
       </a>
       <nav aria-label="Main">
         <ul>
+          <li><a href="#meetings">Meetings</a></li>
           <li><a href="#install">Install</a></li>
           <li><a href="/privacy/">Privacy</a></li>
           <li><a href="https://github.com/Ryan-Reddy/cufflink">Code</a></li>
@@ -65,9 +66,10 @@
     <section class="hero">
       <div class="wrap hero-grid">
         <div>
-          <h1>Select anything. Press a key. Hear it.</h1>
-          <p class="lead">cufflink reads the text you select aloud, in any program on Windows, and lights up each word as it goes.</p>
-          <p class="promise">Fully offline. No account, no network, nothing leaves your computer.</p>
+          <h1>Reading is easier when you can hear it.</h1>
+          <p class="lead">cufflink reads out loud any text you select on Windows and lights up each word as it goes, so your eyes and ears follow together.</p>
+          <p>In meetings it writes down who said what.</p>
+          <p class="promise">Offline, free, and private.</p>
           <p class="actions">
             <a class="button" href="#install">How to install</a>
             <a class="button ghost" href="https://github.com/Ryan-Reddy/cufflink">See the code</a>
@@ -76,9 +78,9 @@
         </div>
         <figure class="shot">
           <picture>
-            <source srcset="/img/01-reading.webp" type="image/webp">
-            <img src="/img/01-reading.png" width="974" height="364"
-                 alt="The cufflink window. It reads a paragraph aloud; the word being read, 'repeated', is lit, the words already read are bright and the rest are dim. Below are the speed, pause, repeat, volume and select controls.">
+            <source srcset="/img/reading-window.webp" type="image/webp">
+            <img src="/img/reading-window.png" width="554" height="194"
+                 alt="The cufflink reading window, captured on Windows, reading aloud a sentence selected in Notepad. The word being read, 'lights', is highlighted; the words already read are bright and the rest are dim. Below are the speed, repeat, pause, volume and select controls.">
           </picture>
         </figure>
       </div>
@@ -110,10 +112,24 @@
               <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>B</kbd></td><td>Select mode: everything you select is read straight away.</td></tr>
               <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd></td><td>Faster or slower.</td></tr>
               <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>G</kbd></td><td>Go back to the window you were reading from.</td></tr>
+              <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd></td><td>Open the meeting tracker.</td></tr>
             </tbody>
           </table>
         </div>
         <p class="small">Every control also explains itself when you point at it, and the <strong>?</strong> button lists them all.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="meetings">
+      <div class="wrap">
+        <h2 id="meetings">Meetings: who said what</h2>
+        <p>Press <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>Alt</kbd>&nbsp;+&nbsp;<kbd>T</kbd> and the same small window follows a call or a meeting, writing down both sides as text while it happens.</p>
+        <ul>
+          <li><strong>Who said what</strong> comes from where the sound arrives: your microphone is you, your speakers are everyone else.</li>
+          <li><strong>It starts recording nothing.</strong> It listens only while you switch recording on, with <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>Alt</kbd>&nbsp;+&nbsp;<kbd>L</kbd>.</li>
+          <li><strong>Mark a moment</strong> with <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>Alt</kbd>&nbsp;+&nbsp;<kbd>K</kbd>, or add a note of your own with <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>Alt</kbd>&nbsp;+&nbsp;<kbd>N</kbd>.</li>
+          <li><strong>When it stops,</strong> the text is saved as a file on your computer. The audio is never saved.</li>
+        </ul>
       </div>
     </section>
 
@@ -148,7 +164,8 @@
           <li>The speech is made on your own computer. It is not a cloud service.</li>
           <li>No account, no tracking, no analytics, no ads.</li>
           <li>The text you select is held in memory only while it is read, then forgotten.</li>
-          <li>Once installed, it keeps working with the internet switched off.</li>
+          <li>Meeting notes are turned into text on your computer and saved there. The audio is not saved and not sent anywhere.</li>
+          <li>Once installed, reading aloud keeps working with the internet switched off. The meeting tracker downloads one more speech model (about 484&nbsp;MB) the first time you use it, then works offline too.</li>
         </ul>
         <p><a href="/privacy/">Read the privacy policy</a></p>
       </div>
