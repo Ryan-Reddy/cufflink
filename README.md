@@ -236,7 +236,8 @@ events in `~/.claude/settings.json` (exec form: no shell, no quoting):
 Don't add it under `PermissionRequest` or `PreToolUse`/`AskUserQuestion`:
 both raise a `Notification` as well, so you'd hear everything twice. If
 cufflink isn't running the hook connects to nothing and stays silent; every
-spoken line is also logged to `claude_notify.log` next to the script.
+spoken line is also logged to `claude_notify.log` next to the script (in
+`%LOCALAPPDATA%\cufflink` for the packaged builds).
 
 ## Microsoft Store
 
@@ -244,7 +245,7 @@ spoken line is also logged to `claude_notify.log` next to the script.
 bother is that **Microsoft signs it**, which removes the SmartScreen warning
 without a certificate of your own. [STORE.md](STORE.md) is the whole process:
 the account, the two identity strings, the `runFullTrust` justification, and
-the custom-licence step that GPL-3.0 needs (the same route VLC takes).
+where the GPL-3.0 goes in the listing.
 
 ## Standalone build (no Python needed)
 
