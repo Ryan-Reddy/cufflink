@@ -90,6 +90,15 @@ $trayArt = Join-Path $root 'assets\cufflink-tray.png'
 if (-not (Test-Path $trayArt)) { throw 'assets\cufflink-tray.png is missing.' }
 Copy-Item $trayArt (Join-Path $artDir 'cufflink-tray.png') -Force
 
+# `cufflink.exe --claude-hook` runs this script from beside the exe
+# (claudehook.notifier_path), so without it the hook is switched on and then
+# silently does nothing.
+$hookDir = Join-Path $dist 'integrations\claude-code'
+New-Item -ItemType Directory -Path $hookDir -Force | Out-Null
+$notifier = Join-Path $root 'integrations\claude-code\claude_notify.py'
+if (-not (Test-Path $notifier)) { throw 'integrations\claude-code\claude_notify.py is missing.' }
+Copy-Item $notifier (Join-Path $hookDir 'claude_notify.py') -Force
+
 # The exe bundles espeak-ng and phonemizer, both GPL-3.0, so the licence has to
 # travel with the binary.
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $dist 'LICENSE.txt') -Force
