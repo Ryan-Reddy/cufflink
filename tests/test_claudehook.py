@@ -119,6 +119,32 @@ class Enable(Base):
         claudehook.enable()
         self.assertEqual(list(self.home.glob("*cufflink-tmp*")), [])
 
+    def test_the_store_build_points_at_its_alias_not_its_folder(self):
+        """The MSIX folder is named after the version; the alias is not."""
+        versioned = ("C:\\Program Files\\WindowsApps\\RyanReddy.cufflink_1.0.0.0_x64__abc"
+                     "\\cufflink\\cufflink.exe")
+        with mock.patch.object(sys, "frozen", True, create=True), \
+                mock.patch.object(sys, "executable", versioned), \
+                mock.patch.object(claudehook, "packaged", lambda: True), \
+                mock.patch.dict("os.environ", {"LOCALAPPDATA": "C:\\Users\\x\\AppData\\Local"}):
+            claudehook.enable()
+        entry = self.read()["hooks"]["Stop"][0]["hooks"][0]
+        self.assertEqual(entry["command"],
+                         "C:\\Users\\x\\AppData\\Local\\Microsoft\\WindowsApps\\cufflink.exe")
+        self.assertEqual(entry["args"], ["--claude-hook"])
+        self.assertEqual(claudehook.status(), "on")
+
+    def test_the_zip_build_points_at_its_own_exe(self):
+        exe = "D:\\tools\\cufflink\\cufflink.exe"
+        with mock.patch.object(sys, "frozen", True, create=True), \
+                mock.patch.object(sys, "executable", exe), \
+                mock.patch.object(claudehook, "packaged", lambda: False):
+            claudehook.enable()
+        self.assertEqual(self.read()["hooks"]["Stop"][0]["hooks"][0]["command"], exe)
+
+    def test_this_test_run_is_not_packaged(self):
+        self.assertFalse(claudehook.packaged())
+
 
 class Disable(Base):
     def test_turning_off_removes_ours(self):
