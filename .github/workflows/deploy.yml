@@ -31,6 +31,17 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests
 
+  vscode:
+    # The VS Code extension: plain JavaScript with no dependencies, so its
+    # tests need nothing but Node. Not a gate on the site deploy.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: node --test "integrations/vscode/test/*.test.js"
+
   site:
     runs-on: ubuntu-latest
     steps:
@@ -91,6 +102,10 @@ jobs:
           projectId: getreddyworld
           target: cufflink
           expires: 7d
+          # 15.34.1 first asks the Service Usage API whether Hosting is on, and
+          # the deploy account may not ask: every deploy since has been a 403.
+          # The last release that deployed, until the account may.
+          firebaseToolsVersion: 15.34.0
           # No channelId: the action makes one per PR, stable across new
           # commits, and edits its one comment instead of adding another.
 
@@ -107,6 +122,7 @@ jobs:
           projectId: getreddyworld
           target: cufflink
           channelId: live
+          firebaseToolsVersion: 15.34.0   # see Publish preview
 
       - name: Check the site is discoverable
         if: steps.preview.outcome == 'success' || steps.live.outcome == 'success'
