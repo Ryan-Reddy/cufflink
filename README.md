@@ -238,6 +238,31 @@ both raise a `Notification` as well, so you'd hear everything twice. If
 cufflink isn't running the hook connects to nothing and stays silent; every
 spoken line is also logged to `claude_notify.log` next to the script.
 
+## Read aloud from VS Code
+
+`integrations/vscode/` is a VS Code extension that hands the selection to the
+text-in port: no clipboard round trip, and several cursors are read top to
+bottom. With nothing selected it reads the line the cursor is on.
+
+| Does | How |
+|---|---|
+| read the selection | `Ctrl+Shift+Alt+M`, or right-click → **Read aloud with cufflink** |
+| pause, stop, faster, slower | cufflink's own keys, as anywhere else |
+| back to the editor | `Ctrl+Alt+G`: the text arrives with a `::from <folder>` header |
+
+The extra Shift is deliberate. cufflink's hotkeys fire only on exactly their
+keys, so `Ctrl+Alt+M` still reads through the clipboard as before and the two
+never both fire. If cufflink isn't running the extension says so, with a link
+to install it.
+
+Plain JavaScript with no dependencies, so it runs straight from the folder:
+
+```
+code --extensionDevelopmentPath=C:\path\to\cufflink\integrations\vscode
+```
+
+`node --test "integrations/vscode/test/*.test.js"` runs its tests.
+
 ## Microsoft Store
 
 `.\package.ps1` builds `dist\cufflink.msix` for submission. The reason to
