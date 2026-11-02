@@ -113,17 +113,18 @@ more than they sound:
 - **Short description** (one line, shown in search results). Something like:
   *"Select text anywhere in Windows and hear it read aloud, entirely on your
   own machine."*
-- **Say what it downloads.** The download is about 560 MB (758 MB once
-  installed), and the meeting tracker fetches a further 484 MB (`whisper-small`) the first time it is
-  used, into `%LOCALAPPDATA%\cufflink`. Reading aloud never needs it. Put a
+- **Say what it downloads.** The download is about 590 MB (about 795 MB once
+  installed; both measured on the 2026-10-27 build, in decimal MB), and the meeting tracker fetches a
+  further 484 MB (`whisper-small`) the first time it is used, into `%LOCALAPPDATA%\cufflink`. Reading aloud never needs it. Put a
   line like this in the description, and the same in **Additional system
   requirements** if the form offers it, so nobody meets half a gigabyte they
   were not told about:
   *"Everything you need to read aloud is in the download. The optional meeting
   tracker downloads one more speech model (about 484 MB) the first time you
   use it; nothing is ever uploaded."*
-- **The offline angle.** Say "no account, no network, nothing leaves your
-  machine" high up.
+- **The offline angle.** Say "no account, nothing leaves your machine" high
+  up, and that reading aloud needs no network. Do not say "no network" on its
+  own: the meeting tracker downloads one model on first use (above).
 - **Link out.** The listing takes a website and a support contact. Point them
   at [cufflink.reddy.world](https://cufflink.reddy.world) and the GitHub repo — that is how a
   Store listing turns into people knowing who made it, rather than a download
@@ -149,10 +150,12 @@ that if certification asks, the answer is yours rather than a link you trusted.
 A rejection names what failed; fix that and resubmit rather than starting
 over.
 
-The package is about 560 MB: the Kokoro voice is 338 MB of it and
-`whisper-base`, the meeting tracker's first model, another 145 MB. The alternative — a small download that fetches the
-model on first run — would break the one promise the app is making, so it
-stays in the package.
+The package is about 590 MB (decimal): the Kokoro voice is 354 MB of it and
+`whisper-base`, the meeting tracker's first model, another 145 MB. Reading
+aloud needs nothing after install, and that is the promise: the voice is in the
+package, not fetched on first run, so it stays there. The one thing fetched
+later is the meeting tracker's `small` model (484 MB), once, and §5 says so in
+the listing.
 
 ## Updating
 
