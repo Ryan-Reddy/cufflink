@@ -14,16 +14,11 @@ copy packaging\identity.example.json packaging\identity.json
 .\package.ps1 -SelfSign       # signed with a test cert, installable here
 ```
 
-## 1. The developer account
+## 1. The developer account — done
 
-[partner.microsoft.com/dashboard](https://partner.microsoft.com/dashboard) →
-register as an **individual**. Not a company: an individual account puts your
-own name on the listing, which is the point. There is a one-time registration
-fee — check the current figure at signup rather than trusting a number written
-down here, because Microsoft has changed it more than once.
-
-Verification for an individual is identity, not company documents, and takes
-days rather than weeks.
+An **individual** account at
+[partner.microsoft.com/dashboard](https://partner.microsoft.com/dashboard), so
+your own name is on the listing.
 
 ## 2. Reserve the name — done, and it is why this is called cufflink
 
@@ -50,28 +45,44 @@ says **Ryan Reddy**. That's the line under the app.
 
 ## 3. Build and upload
 
-`.\package.ps1` produces `dist\cufflink.msix`. Upload it unsigned — the signing
-happens on Microsoft's side, and a package you signed yourself is rejected.
+`.\package.ps1` produces `dist\cufflink.msix`. Upload it unsigned; Microsoft
+signs it.
 
-Test it locally first with `-SelfSign`; the script prints the three commands
-that trust the test certificate and install the package. Uninstall it before
-submitting so you are not testing against a stale install.
+To try the package on this PC first, with Developer Mode on (Settings →
+System → For developers), register the staged folder; no certificate needed:
+
+    .\package.ps1
+    Add-AppxPackage -Register build\msix\AppxManifest.xml
+
+Remove it again with `Get-AppxPackage RyanReddy.cufflink | Remove-AppxPackage`.
+`-SelfSign` is the other way: it signs the .msix with a test certificate and
+prints the commands that trust it.
+
+The manifest gives the app a `cufflink.exe` execution alias. The Claude Code
+hook points at it (`%LOCALAPPDATA%\Microsoft\WindowsApps\cufflink.exe`)
+rather than at the install folder, whose name changes with every version.
 
 ## 4. The two things certification will ask about
 
 **`runFullTrust` is a restricted capability.** cufflink is a PyInstaller desktop
-app, not a UWP one, and full trust is what lets it run at all. Justification —
-say something close to this:
+app, not a UWP one, and full trust is what lets it run at all. The
+justification goes on the submission's **Submission options** page, under
+**Restricted capabilities**
+([Submission options](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/manage-submission-options)).
+Say something close to this:
 
 > cufflink is a desktop application packaged with the Desktop Bridge. It needs
 > full trust to register system-wide hotkeys, read the current selection via
 > the clipboard, and run the speech models locally. It installs no service
-> and no driver. Reading aloud makes no network connections; the optional
-> meeting tracker downloads one speech-recognition model, once, on first use.
+> and no driver. Reading aloud makes no network connections. The optional
+> meeting tracker downloads one speech-recognition model on first use, and asks
+> huggingface.co whether a newer copy exists each time it loads that model; it
+> sends no audio or text.
 
 Keep that true. The voice and the meeting tracker's first model ship in the
-package and the text-in port is bound to `127.0.0.1`; the one connection
-outward is the first-use download of `small` (below).
+package and the text-in port is bound to `127.0.0.1`; the only
+connections outward are the meeting tracker's first-use download of `small` and
+its later check for a newer copy (below).
 
 The manifest does not declare `internetClient`, and that is **not** what keeps
 cufflink offline: capabilities like it apply to apps that run in an
@@ -79,36 +90,46 @@ AppContainer, and a `runFullTrust` desktop app does not
 ([App capability declarations](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/app-capability-declarations)).
 What keeps it offline is the code.
 
-**The licence.** cufflink is GPL-3.0, which conflicts with the Store's Standard
-Application License Terms. The Store has a supported way through this: in the
-listing, choose **custom licence terms** and point at the GPL. This is exactly
-how VLC ships on the Store, so it is a well-trodden path, not an argument you
-have to win.
+**The licence.** cufflink is GPL-3.0. The Store listing has an **Additional
+license terms** field
+([Store listings](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/add-and-edit-store-listing-info));
+put the GPL there, with the link to
+[LICENSE](https://github.com/Ryan-Reddy/cufflink/blob/main/LICENSE).
 
 ## 5. The listing — the part that is actually your name getting out
 
 The package is engineering; the listing is the shopfront. Things that matter
 more than they sound:
 
-- **Screenshots.** At least one, 1366×768 or larger. Two are ready in
-  `assets/store/screenshots/`: the pill mid-read with a word lit, and the
-  settings window with the mixer loaded. `assets/store/` has the tiles.
+- **Screenshots.** At least one, 1366×768 or larger
+  ([screenshot rules](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images)).
+  Three are in `assets/store/screenshots/`, 1920×1080, captured from the
+  Store build running on Windows: the pill mid-read with a word lit, the
+  voices window, and the meeting tracker following a recording. Microsoft
+  asks for no marketing text on the image, so the headlines are the captions
+  (up to 200 characters each):
+  - `01-reading.png`: *Select anything. Press a key.*
+  - `02-voices.png`: *The voice is yours to build*
+  - `03-meeting.png`: *Meetings: who said what*
+
+  `assets/store/` has the tiles.
 - **Short description** (one line, shown in search results). Something like:
   *"Select text anywhere in Windows and hear it read aloud, entirely on your
   own machine."*
-- **Say what it downloads.** The package is about 511 MB, and the meeting
-  tracker fetches a further 484 MB (`whisper-small`) the first time it is
-  used, into `%LOCALAPPDATA%\cufflink`. Reading aloud never needs it. Put a
+- **Say what it downloads.** The download is about 590 MB (about 795 MB once
+  installed; both measured on the 2026-10-27 build, in decimal MB), and the meeting tracker fetches a
+  further 484 MB (`whisper-small`) the first time it is used, into `%LOCALAPPDATA%\cufflink`. Reading aloud never needs it. Put a
   line like this in the description, and the same in **Additional system
   requirements** if the form offers it, so nobody meets half a gigabyte they
   were not told about:
   *"Everything you need to read aloud is in the download. The optional meeting
   tracker downloads one more speech model (about 484 MB) the first time you
   use it; nothing is ever uploaded."*
-- **The offline angle is the differentiator.** Every other reader on there
-  wants an account and a connection. Say "no account, no network, nothing
-  leaves your machine" high up, because that is the reason someone picks this
-  one.
+- **The offline angle.** Say "no account, and your text, voice and recordings
+  never leave your machine" high up, and that reading aloud needs no network.
+  Do not say "no network" or "nothing leaves your machine" on their own: the
+  meeting tracker downloads one model on first use and asks for a newer copy
+  each time it loads it (above).
 - **Link out.** The listing takes a website and a support contact. Point them
   at [cufflink.reddy.world](https://cufflink.reddy.world) and the GitHub repo — that is how a
   Store listing turns into people knowing who made it, rather than a download
@@ -131,15 +152,16 @@ that if certification asks, the answer is yours rather than a link you trusted.
 
 ## 7. What to expect
 
-Certification takes a few days for a first submission and usually less after
-that. A rejection is normally one specific thing with a pointer to the policy;
-fix it and resubmit rather than starting over.
+A rejection names what failed; fix that and resubmit rather than starting
+over.
 
-The package is about 511 MB: the Kokoro voice is 338 MB of it and
-`whisper-base`, the meeting tracker's first model, another 145 MB. That is well
-inside the Store's limits. The alternative — a small download that fetches the
-model on first run — would break the one promise the app is making, so it
-stays in the package.
+The package is about 590 MB (decimal): the Kokoro voice is 354 MB of it and
+`whisper-base`, the meeting tracker's first model, another 145 MB. Reading
+aloud needs nothing after install, and that is the promise: the voice is in the
+package, not fetched on first run, so it stays there. The one thing fetched
+later is the meeting tracker's `small` model (484 MB), once; it also asks
+Hugging Face for a newer copy each time it loads that model, and §5 says so in
+the listing.
 
 ## Updating
 

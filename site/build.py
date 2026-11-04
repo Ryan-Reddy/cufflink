@@ -32,7 +32,7 @@ READING = ROOT / "assets" / "site" / "reading-window.png"
 BG = (13, 27, 51)          # --bg in styles.css, and the plate behind the hero
 # (left, top, right, bottom) of the window in each Store screenshot.
 CROPS = {
-    "02-voices": (776, 36, 1270, 720),
+    "02-voices": (743, 173, 1193, 1059),
 }
 
 
@@ -67,6 +67,15 @@ def pictures():
     # itself, cut from the same file.
     for name, box in CROPS.items():
         im = Image.open(SCREENSHOTS / f"{name}.png").convert("RGB").crop(box)
+        # Windows 11 rounds the window's corners, and the screenshot's light
+        # desktop shows through them; on the page they take its background.
+        px = im.load()
+        for x0 in (0, im.width - 10):
+            for y0 in (0, im.height - 10):
+                for x in range(x0, x0 + 10):
+                    for y in range(y0, y0 + 10):
+                        if sum(px[x, y]) > 450:
+                            px[x, y] = BG
         im.save(img / f"{name}.png", optimize=True)
         im.save(img / f"{name}.webp", quality=88, method=6)
 

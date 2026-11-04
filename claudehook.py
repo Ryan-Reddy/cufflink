@@ -50,6 +50,30 @@ def notifier_path() -> Path:
     return root / "integrations" / "claude-code" / "claude_notify.py"
 
 
+def packaged() -> bool:
+    """Running from the Store's MSIX, rather than from source or the zip."""
+    if sys.platform != "win32":
+        return False
+    import ctypes
+
+    length = ctypes.c_uint32(0)
+    # ERROR_INSUFFICIENT_BUFFER means there is a package name to hand back;
+    # an unpackaged process gets APPMODEL_ERROR_NO_PACKAGE instead.
+    return ctypes.windll.kernel32.GetCurrentPackageFullName(
+        ctypes.byref(length), None) == 122
+
+
+def alias_path() -> Path:
+    """The execution alias the manifest declares, which Windows keeps on PATH.
+
+    Packaged, sys.executable is under Program Files\\WindowsApps in a folder
+    named after the version, so a hook pointing there breaks at the first
+    Store update. The alias stays put and always starts the installed one.
+    """
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    return Path(base) / "Microsoft" / "WindowsApps" / "cufflink.exe"
+
+
 def _command() -> dict:
     """The hook entry to install.
 
@@ -60,7 +84,7 @@ def _command() -> dict:
     if getattr(sys, "frozen", False):
         return {
             "type": "command",
-            "command": sys.executable,
+            "command": str(alias_path()) if packaged() else sys.executable,
             "args": ["--claude-hook"],
             "timeout": TIMEOUT,
             "async": True,
