@@ -74,12 +74,15 @@ Say something close to this:
 > cufflink is a desktop application packaged with the Desktop Bridge. It needs
 > full trust to register system-wide hotkeys, read the current selection via
 > the clipboard, and run the speech models locally. It installs no service
-> and no driver. Reading aloud makes no network connections; the optional
-> meeting tracker downloads one speech-recognition model, once, on first use.
+> and no driver. Reading aloud makes no network connections. The optional
+> meeting tracker downloads one speech-recognition model on first use, and asks
+> huggingface.co whether a newer copy exists each time it loads that model; it
+> sends no audio or text.
 
 Keep that true. The voice and the meeting tracker's first model ship in the
-package and the text-in port is bound to `127.0.0.1`; the one connection
-outward is the first-use download of `small` (below).
+package and the text-in port is bound to `127.0.0.1`; the only
+connections outward are the meeting tracker's first-use download of `small` and
+its later check for a newer copy (below).
 
 The manifest does not declare `internetClient`, and that is **not** what keeps
 cufflink offline: capabilities like it apply to apps that run in an
@@ -122,9 +125,11 @@ more than they sound:
   *"Everything you need to read aloud is in the download. The optional meeting
   tracker downloads one more speech model (about 484 MB) the first time you
   use it; nothing is ever uploaded."*
-- **The offline angle.** Say "no account, nothing leaves your machine" high
-  up, and that reading aloud needs no network. Do not say "no network" on its
-  own: the meeting tracker downloads one model on first use (above).
+- **The offline angle.** Say "no account, and your text, voice and recordings
+  never leave your machine" high up, and that reading aloud needs no network.
+  Do not say "no network" or "nothing leaves your machine" on their own: the
+  meeting tracker downloads one model on first use and asks for a newer copy
+  each time it loads it (above).
 - **Link out.** The listing takes a website and a support contact. Point them
   at [cufflink.reddy.world](https://cufflink.reddy.world) and the GitHub repo — that is how a
   Store listing turns into people knowing who made it, rather than a download
@@ -154,7 +159,8 @@ The package is about 590 MB (decimal): the Kokoro voice is 354 MB of it and
 `whisper-base`, the meeting tracker's first model, another 145 MB. Reading
 aloud needs nothing after install, and that is the promise: the voice is in the
 package, not fetched on first run, so it stays there. The one thing fetched
-later is the meeting tracker's `small` model (484 MB), once, and §5 says so in
+later is the meeting tracker's `small` model (484 MB), once; it also asks
+Hugging Face for a newer copy each time it loads that model, and §5 says so in
 the listing.
 
 ## Updating
