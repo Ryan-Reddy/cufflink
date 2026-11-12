@@ -21,6 +21,7 @@ Stdlib only — wire it up in ~/.claude/settings.json (see README)."""
 
 import datetime
 import json
+import os
 import re
 import socket
 import sys
@@ -32,8 +33,13 @@ CUFFLINK_PORT = 52719
 # you have parsed a word of it. An older cufflink, or one whose settings have no
 # profile by this name, ignores the line and reads in the everyday voice.
 PROFILE = "claude"
-LOG = Path(__file__).with_name("claude_notify.log")
-STATE = Path(__file__).with_name("claude_notify.state.json")
+# Beside this file from source. Run by the packaged exe, this file sits in the
+# install folder, and the Store's is read-only (Program Files\WindowsApps),
+# so the log and the throttle state go where cufflink keeps its settings.
+HOME = (Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "cufflink"
+        if getattr(sys, "frozen", False) else Path(__file__).parent)
+LOG = HOME / "claude_notify.log"
+STATE = HOME / "claude_notify.state.json"
 SUMMARY_CHARS = 300
 TURN_WARMUP = 60
 NARRATE_EVERY = 180
@@ -178,11 +184,13 @@ def _load_state() -> dict:
 def _save_state(state: dict) -> None:
     cutoff = time.time() - 86400
     state = {k: v for k, v in state.items() if v.get("seen", 0) >= cutoff or "turn_started" in v}
+    HOME.mkdir(parents=True, exist_ok=True)
     STATE.write_text(json.dumps(state), encoding="utf-8")
 
 
 def _log(event: str, line: str) -> None:
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    HOME.mkdir(parents=True, exist_ok=True)
     with LOG.open("a", encoding="utf-8") as log:
         log.write(f"{stamp} {event} {line}\n")
 

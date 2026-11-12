@@ -1,6 +1,6 @@
 # cufflink
 
-> cufflink is a free, open-source Windows app that reads any selected text aloud, offline. Select text in any program, press Ctrl+Alt+M, and it reads it out while lighting up each word. In meetings (Ctrl+Alt+T) it writes down who said what, on the computer itself. No account, and nothing leaves the computer.
+> cufflink is a free, open-source Windows app that reads any selected text aloud, offline. Select text in any program, press Ctrl+Alt+M, and it reads it out while lighting up each word. In meetings (Ctrl+Alt+T) it writes down who said what, on the computer itself. No account, and your text, voice and recordings never leave the computer.
 
 ## Pages
 
