@@ -78,6 +78,28 @@ HOTKEY_RECORD = "ctrl+alt+l"   # L for listen
 HOTKEY_MARK = "ctrl+alt+k"     # K for keep this, I will come back to it
 HOTKEY_NOTE = "ctrl+alt+n"     # N for note
 
+
+def listen_faces(recording: bool, running: bool) -> dict:
+    """What the meeting buttons on the pill show (#34).
+
+    Stop and the transcripts were only in the ≡ menu, and the pill felt out
+    of control: what you reach for in a call was a click and a read away.
+    They are on the pill now, and the ≡ menu keeps them too.
+
+    `recording` says whether audio is being captured, `running` whether the
+    tracker process is up at all. Colours are the caller's: this stays free
+    of Tk, so it can be tested without a window.
+    """
+    return {
+        # Recording shows pause, which is what a click does; stopped shows
+        # record. The red stays, so "it is recording" is still one look.
+        "record": {"text": "❚❚" if recording else "●", "live": bool(recording)},
+        # Nothing to stop when no tracker is running.
+        "stop": {"text": "■", "enabled": bool(running)},
+        # The folder is there whether or not anything runs.
+        "transcripts": {"text": "transcripts", "enabled": True},
+    }
+
 # The meeting tracker is a separate program on a port of its own, started on
 # demand and never at startup. Two reasons, both load-bearing: it drags in
 # ctranslate2 and half a gigabyte of Whisper, which has no business on the
@@ -966,11 +988,17 @@ def main():
     listen_left = tk.Frame(listen_controls, bg=BG)
     listen_left.pack(side="left")
     record_btn = chip(listen_left, "●", lambda: toggle_record(),
-                      tip="Start or stop recording this meeting  "
+                      tip="Record, or pause while it records  "
                           "(ctrl+alt+l).  It starts stopped: this hears your "
                           "microphone and everything your speakers play.",
                       font=("Segoe UI", 17), pad=10)
     record_btn.pack(side="left")
+    # Stop and the transcripts, on the pill and not only in the ≡ menu
+    # (#34): in a call, a control you have to go looking for is not there.
+    stop_btn = chip(listen_left, "■", lambda: stop_meeting(),
+                    tip="Stop listening: end the tracker and save the "
+                        "transcript", font=("Segoe UI", 12), pad=8)
+    stop_btn.pack(side="left")
     # Drawn on a canvas rather than typed as block characters. The same
     # lesson the play control taught: U+2581 and friends render as a flat
     # underscore in Segoe UI at this size, so five of them at rest read as a
@@ -1006,6 +1034,10 @@ def main():
                     tip="Mark what was just said, to come back to later  "
                         "(ctrl+alt+k)", font=("Segoe UI", 10))
     mark_btn.pack(side="left")
+    transcripts_btn = chip(listen_left, "transcripts", lambda: open_meetings(),
+                           tip="Open the folder with the saved transcripts",
+                           font=("Segoe UI", 9), pad=6)
+    transcripts_btn.pack(side="left")
 
     # Packed to the right *before* the note box claims the middle, and given
     # a width, so a long model message cannot push it off the pill.
@@ -1054,7 +1086,8 @@ def main():
     # thing it drew; the poll is a short line that says whether that number
     # has moved, so nothing but the number crosses the wire while nobody is
     # talking -- and none of it crosses at all outside listen mode.
-    listen = {"version": -1, "recording": False, "status": "",
+    listen = {"version": -1, "recording": False, "running": False,
+              "status": "",
               "levels": {}, "lines": [], "notes": [], "job": None,
               # The tracker this pill started, so Stop can end it whatever
               # state it is in; and the meeting keys while they are bound.
@@ -1529,6 +1562,7 @@ def main():
         """What ask_meeting found, applied on the UI thread."""
         if payload is None:
             listen["recording"] = False
+            listen["running"] = False
             # What the pill last had to say -- a taken port, a failed start,
             # a repair -- outlives the poll that finds nothing running.
             listen["status"] = listen["said"] or "not running"
@@ -1539,6 +1573,7 @@ def main():
             state = payload["state"]
             listen["said"] = ""
             was_recording = listen["recording"]
+            listen["running"] = True
             listen["recording"] = bool(state.get("recording"))
             listen["status"] = state.get("status") or ""
             listen["levels"] = state.get("levels") or {}
@@ -1558,8 +1593,11 @@ def main():
     def render_listen_controls():
         # The one control most people want is the brightest, the same rule
         # the play button follows on the other row.
-        record_btn.rest = LIVE if listen["recording"] else CONTROL_HOT
-        record_btn.config(text="●", fg=record_btn.rest)
+        faces = listen_faces(listen["recording"], listen["running"])
+        record_btn.rest = LIVE if faces["record"]["live"] else CONTROL_HOT
+        record_btn.config(text=faces["record"]["text"], fg=record_btn.rest)
+        stop_btn.rest = CONTROL if faces["stop"]["enabled"] else CONTROL_OFF
+        stop_btn.config(fg=stop_btn.rest)
         for source, canvas in level_meters.items():
             draw_meter(canvas, (listen["levels"] or {}).get(source),
                        ACCENT if source == "you" else GREEN)
@@ -2000,6 +2038,7 @@ def main():
         elif name == "listen-stopped":
             listen["status"] = listen["said"] = arg
             listen["recording"] = False
+            listen["running"] = False
             render_listen_controls()
         elif name == "record":
             if pill["mode"] != "listen":
