@@ -44,6 +44,11 @@ class English(unittest.TestCase):
         # "is", "in", "was", "we", "want", "door" are both Dutch and English.
         self.assertEqual(detect("We want the door in the hall, it was there."), "en")
 
+    def test_english_words_that_are_also_dutch_do_not_count_for_dutch(self):
+        # "er", "bent", "heel" are Dutch words, but English too: they count for neither.
+        self.assertEqual(detect("Er, the nail is bent, mind your heel."), "en")
+        self.assertEqual(detect("Ben, er, I think so."), "en")
+
 
 class Mixed(unittest.TestCase):
     def test_dutch_with_an_english_quote_stays_dutch(self):

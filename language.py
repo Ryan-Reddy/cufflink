@@ -26,7 +26,10 @@ DUTCH = frozenset("""
     als dan toen omdat dus want maar of hoewel terwijl
     heel erg veel meer minder alleen even weer nu straks gisteren vandaag morgen
     ja nee graag alsjeblieft dank bedankt goedemorgen hallo hoi doei
-""".split()) - {"want", "of", "die", "even"}
+""".split()) - {"want", "of", "die", "even",
+                # Also English words: "er" (a pause), "bent", "heel", "hen",
+                # "hoe", "doe", "tot".
+                "er", "bent", "heel", "hen", "hoe", "doe", "tot"}
 
 ENGLISH = frozenset("""
     the a an and not also but that what who where how why when
