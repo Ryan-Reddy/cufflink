@@ -372,8 +372,8 @@ SILENCE_TO_CUT = 0.7
 # Someone who talks without pausing has to be cut somewhere: Whisper's window
 # is 30 seconds and it ignores the rest. It was cut at 25 s, the most the
 # window allows, and that made the tracker lag: nothing of a long turn shows
-# until the turn ends or the cut comes, so its first words waited up to 27 s
-# (#34). At 10 s they wait about 11 s, and lagbench.py measured the word error
+# until the turn ends or the cut comes, so its first words waited up to 28 s
+# (#34). At 10 s they wait about 12 s, and lagbench.py measured the word error
 # rate of a 57 s talk going from 0.006 to 0.013 -- one word more wrong. Below
 # 10 s the fixed cost per call shows: at 6 s `small` ran at 0.98x real time,
 # no headroom left. The cut goes to the quietest frame near the clock (_join).
