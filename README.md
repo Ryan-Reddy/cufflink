@@ -111,10 +111,8 @@ questions, `-Autostart` answers the startup one with yes.
 
 After that one download, reading aloud never touches the network again; the
 machine can be offline forever. The meeting tracker is the one exception: the
-first time it is used it fetches `whisper-small` (484 MB) to refine its
-transcripts, and each time it loads that model after that it asks Hugging Face
-whether a newer copy exists (no audio or text is sent; offline, it uses the
-copy it has).
+first time it is used it fetches `whisper-small` (484 MB), once, to refine its
+transcripts.
 
 Afterwards, **`cufflink.cmd`** is the thing to double-click — it puts up the
 reddy.world banner, starts cufflink, and closes itself while cufflink stays in the

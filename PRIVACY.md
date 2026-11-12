@@ -58,14 +58,9 @@ and no audio or text, is uploaded:
   (about 500 MB) from their public release pages, and checks each file against
   a known checksum. The Microsoft Store package already contains them.
 - **The first time you use the meeting tracker,** it downloads a larger
-  speech-recognition model (about 484 MB) from Hugging Face into your
+  speech-recognition model (about 484 MB) from Hugging Face, once, into your
   local application data folder. If you never use the meeting tracker, this
   never happens.
-
-After that, each time the meeting tracker loads that model it asks Hugging Face
-whether a newer copy exists. The request names the model and, like any web
-request, carries your internet address. No audio or text is sent, and with no
-connection the tracker uses the copy it already has.
 
 ## Third parties
 
