@@ -548,6 +548,7 @@ class CachedLoad(unittest.TestCase):
     def test_faster_whisper_finds_the_cache_with_sockets_blocked(self):
         """The flag is honoured below us too: with every socket refused,
         faster-whisper still resolves a cached `small` from disk."""
+        import os
         import socket
         import tempfile
 
@@ -568,7 +569,9 @@ class CachedLoad(unittest.TestCase):
                                       side_effect=AssertionError("network")):
                 got = download_model("small", cache_dir=root,
                                      local_files_only=True)
-            self.assertEqual(Path(got), snap)
+            # samefile, not ==: on the CI runner one side comes back as an
+            # 8.3 short name (RUNNER~1) and the other as the long name.
+            self.assertTrue(os.path.samefile(got, snap), (got, snap))
 
     def test_a_shipped_folder_is_loaded_as_it_is(self):
         import tempfile
