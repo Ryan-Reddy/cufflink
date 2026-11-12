@@ -369,12 +369,15 @@ HANGOVER = 0.4
 # and a cut is the edge of Whisper's context, so it loses the words on both
 # sides of it, not just the join.
 SILENCE_TO_CUT = 0.7
-# Whisper's window is 30 seconds and it silently ignores the rest, so someone
-# who talks without pausing has to be cut somewhere. This is that somewhere,
-# with headroom for the run-up and tail. The cut lands wherever the clock says
-# rather than at a pause, which is the one place this splitter knowingly makes
-# a bad join; picking the quietest frame in the last second would be better.
-MAX_UTTERANCE = 25.0
+# Someone who talks without pausing has to be cut somewhere: Whisper's window
+# is 30 seconds and it ignores the rest. It was cut at 25 s, the most the
+# window allows, and that made the tracker lag: nothing of a long turn shows
+# until the turn ends or the cut comes, so its first words waited up to 27 s
+# (#34). At 10 s they wait about 11 s, and lagbench.py measured the word error
+# rate of a 57 s talk going from 0.006 to 0.013 -- one word more wrong. Below
+# 10 s the fixed cost per call shows: at 6 s `small` ran at 0.98x real time,
+# no headroom left. The cut goes to the quietest frame near the clock (_join).
+MAX_UTTERANCE = 10.0
 # Voice, not duration: below this it is a chair or a key press, and handing
 # Whisper a quarter second of clatter is exactly how transcripts fill up with
 # invented sentences.
@@ -711,8 +714,8 @@ class Meeting:
         self.transcript = Transcript()
         self.segmenters: dict[str, Segmenter] = {}
         # Audio held back for a second, better hearing. Kept in memory only,
-        # and only until `refine` has used it: an utterance is at most 25 s of
-        # 16 kHz float32, about 1.6 MB, which is fine for a handful and not
+        # and only until `refine` has used it: an utterance is at most 10 s of
+        # 16 kHz float32, about 0.64 MB, which is fine for a handful and not
         # for a meeting's worth.
         self.awaiting: deque = deque()
         self.refining = refine

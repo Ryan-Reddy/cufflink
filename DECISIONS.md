@@ -443,5 +443,5 @@ by a meeting, because the canned transcriber in the tests runs out of answers
 on the second call and the transcript went blank.
 
 Turned off with `--refine-with ""`, which also stops the audio being held for
-a second pass -- an utterance is up to 25 s of 16 kHz float32, about 1.6 MB,
+a second pass -- an utterance is up to 10 s of 16 kHz float32, about 0.64 MB,
 which is fine for the handful in the queue and not for a meeting's worth.
