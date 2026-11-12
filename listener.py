@@ -648,12 +648,22 @@ class WhisperTranscriber:
 
             from pathlib import Path
 
-            here = Path(self.source).is_dir()
-            self._model = WhisperModel(
-                self.source, device="cpu", compute_type=self.compute_type,
-                cpu_threads=self.threads,
-                **({} if here else {"download_root": self.root}),
-            )
+            common = dict(device="cpu", compute_type=self.compute_type,
+                          cpu_threads=self.threads)
+            if Path(self.source).is_dir():
+                self._model = WhisperModel(self.source, **common)
+            else:
+                # Cache first. Without local_files_only, faster-whisper asks
+                # huggingface.co for the latest revision on every load, even
+                # with the model already on disk (#32). Only a missing or
+                # partial cache goes to the network, and then as before.
+                try:
+                    self._model = WhisperModel(
+                        self.source, download_root=self.root,
+                        local_files_only=True, **common)
+                except Exception:
+                    self._model = WhisperModel(
+                        self.source, download_root=self.root, **common)
             if self.on_state:
                 self.on_state(f"{self.size} ready")
         return self._model

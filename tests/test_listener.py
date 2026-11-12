@@ -514,6 +514,80 @@ class Models(unittest.TestCase):
             WhisperTranscriber("enormous")
 
 
+class CachedLoad(unittest.TestCase):
+    """A model already on disk loads without asking huggingface.co (#32)."""
+
+    def _load(self, fake, shipped):
+        import faster_whisper
+
+        t = WhisperTranscriber("small", root="cache-root", shipped=shipped)
+        with mock.patch.object(faster_whisper, "WhisperModel", fake):
+            t.load()
+        return t
+
+    def test_a_cached_model_loads_with_one_offline_call(self):
+        fake = mock.Mock(return_value="model")
+        with mock.patch("huggingface_hub.snapshot_download",
+                        side_effect=AssertionError("network")):
+            t = self._load(fake, shipped="no-such-folder")
+        self.assertEqual(t._model, "model")
+        fake.assert_called_once()
+        self.assertIs(fake.call_args.kwargs["local_files_only"], True)
+        self.assertEqual(fake.call_args.kwargs["download_root"], "cache-root")
+
+    def test_a_missing_cache_falls_back_to_the_download(self):
+        fake = mock.Mock(side_effect=[OSError("not cached"), "model"])
+        t = self._load(fake, shipped="no-such-folder")
+        self.assertEqual(t._model, "model")
+        self.assertEqual(fake.call_count, 2)
+        first, second = fake.call_args_list
+        self.assertIs(first.kwargs["local_files_only"], True)
+        self.assertNotIn("local_files_only", second.kwargs)
+        self.assertEqual(second.kwargs["download_root"], "cache-root")
+
+    def test_faster_whisper_finds_the_cache_with_sockets_blocked(self):
+        """The flag is honoured below us too: with every socket refused,
+        faster-whisper still resolves a cached `small` from disk."""
+        import socket
+        import tempfile
+
+        from faster_whisper.utils import download_model
+
+        with tempfile.TemporaryDirectory() as root:
+            repo = Path(root) / ("models--" + MODELS["small"].repo.replace("/", "--"))
+            snap = repo / "snapshots" / ("0" * 40)
+            snap.mkdir(parents=True)
+            (repo / "refs").mkdir()
+            (repo / "refs" / "main").write_text("0" * 40)
+            for name in ("config.json", "model.bin", "tokenizer.json",
+                         "vocabulary.txt"):
+                (snap / name).write_bytes(b"")
+            with mock.patch.object(socket, "socket",
+                                   side_effect=AssertionError("network")), \
+                    mock.patch.object(socket, "create_connection",
+                                      side_effect=AssertionError("network")):
+                got = download_model("small", cache_dir=root,
+                                     local_files_only=True)
+            self.assertEqual(Path(got), snap)
+
+    def test_a_shipped_folder_is_loaded_as_it_is(self):
+        import tempfile
+
+        from listener import MODEL_FILES
+
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d) / "whisper-small"
+            folder.mkdir()
+            for name in MODEL_FILES:
+                (folder / name).write_bytes(b"")
+            fake = mock.Mock(return_value="model")
+            self._load(fake, shipped=d)
+        fake.assert_called_once()
+        self.assertEqual(fake.call_args.args[0], str(folder))
+        self.assertNotIn("download_root", fake.call_args.kwargs)
+        self.assertNotIn("local_files_only", fake.call_args.kwargs)
+
+
 # ------------------------------------------------------------ resampling
 
 class Resampling(unittest.TestCase):
