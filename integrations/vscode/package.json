@@ -1,0 +1,44 @@
+{
+  "name": "cufflink",
+  "displayName": "cufflink",
+  "description": "Read the selection aloud with cufflink.",
+  "version": "0.1.0",
+  "publisher": "ryan-reddy",
+  "license": "GPL-3.0-only",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cufflink.read",
+        "title": "Read aloud with cufflink"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "cufflink.read",
+        "key": "ctrl+shift+alt+m",
+        "when": "editorTextFocus"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cufflink.read",
+          "group": "cufflink"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}
